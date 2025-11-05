@@ -213,7 +213,7 @@ export default function DashboardPage() {
               <img
                  src="/logo.png"
                   alt="NutriCalc+ Logo"
-                  className="w-10 h-10 rounded-xl object-cover"
+                  className="mb-1 w-10 h-10 rounded-xl object-cover"
                 />
               <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
                 NutriCalc+

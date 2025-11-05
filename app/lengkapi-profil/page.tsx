@@ -86,14 +86,16 @@ export default function CompleteProfilePage() {
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
-              <Heart className="w-7 h-7 text-white" />
+          <div className="flex items-center gap-2">
+              <img
+                 src="/logo.png"
+                  alt="NutriCalc+ Logo"
+                  className="mb-1 w-10 h-10 rounded-xl object-cover"
+                />
+              <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                NutriCalc+
+              </span>
             </div>
-            <span className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-              NutriCalc+
-            </span>
-          </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Lengkapi Profil Anda
           </h1>
