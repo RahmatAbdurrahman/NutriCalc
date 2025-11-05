@@ -410,7 +410,7 @@ export default function DashboardPage() {
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition"
               >
-                <X className="w-6 h-6" />
+                <X className="w-6 h-6 text-black" />
               </button>
             </div>
 
@@ -423,7 +423,7 @@ export default function DashboardPage() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500"
+                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-black"
                     placeholder="Cari makanan... (min 3 huruf)"
                     autoFocus
                   />
@@ -471,7 +471,7 @@ export default function DashboardPage() {
                         key={meal.value}
                         type="button"
                         onClick={() => setMealType(meal.value as any)}
-                        className={`p-3 border-2 rounded-xl transition ${
+                        className={`p-3 border-2 rounded-xl transition text-black hover:bg-emerald-50${
                           mealType === meal.value
                             ? 'border-emerald-500 bg-emerald-50'
                             : 'border-gray-300'
@@ -492,7 +492,7 @@ export default function DashboardPage() {
                       const urt = foodURTs.find(u => u.urt_id === e.target.value)
                       setSelectedURT(urt || null)
                     }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black "
                   >
                     {foodURTs.map((urt) => (
                       <option key={urt.urt_id} value={urt.urt_id}>
@@ -511,7 +511,7 @@ export default function DashboardPage() {
                     onChange={(e) => setQuantity(parseFloat(e.target.value))}
                     min="0.1"
                     step="0.5"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black"
                   />
                 </div>
 
@@ -539,7 +539,7 @@ export default function DashboardPage() {
                   <button
                     onClick={handleAddFood}
                     disabled={addingFood}
-                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg transition disabled:opacity-50"
+                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg transition disabled:opacity-50 text-black"
                   >
                     {addingFood ? 'Menambahkan...' : 'Tambahkan'}
                   </button>

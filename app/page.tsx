@@ -136,15 +136,22 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Right: 3D Animation */}
-            <div className="h-[400px] lg:h-[500px]">
-              <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
-                <ambientLight intensity={0.5} />
-                <directionalLight position={[10, 10, 5]} intensity={1} />
-                <AnimatedSphere />
-                <OrbitControls enableZoom={false} autoRotate autoRotateSpeed={2} />
-              </Canvas>
-            </div>
+            <div className="h-[400px] lg:h-[500px] flex items-center justify-center relative overflow-hidden">
+  
+            <img
+              src="public/char.png"
+              alt="Low-Poly Character"
+              className="
+                w-full h-full object-contain // Pastikan gambar terlihat dengan baik
+                animate-floatAndRotate // Nama animasi custom Anda
+                transition-transform duration-300 ease-in-out
+                hover:scale-105 hover:rotate-2 // Efek saat hover
+              "
+            />
+
+            <div className="absolute top-1/4 right-1/4 w-20 h-20 bg-emerald-300 rounded-full mix-blend-screen filter blur-3xl opacity-50 animate-pulseLight"></div>
+            <div className="absolute bottom-1/4 left-1/4 w-16 h-16 bg-teal-300 rounded-full mix-blend-screen filter blur-3xl opacity-50 animate-pulseLight delay-100"></div>
+          </div>
           </div>
         </div>
       </section>
