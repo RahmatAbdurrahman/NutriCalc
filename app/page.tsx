@@ -139,13 +139,13 @@ export default function LandingPage() {
             <div className="h-[400px] lg:h-[500px] flex items-center justify-center relative overflow-hidden">
   
             <img
-              src="public/char.png"
+              src="/char.png"
               alt="Low-Poly Character"
               className="
-                w-full h-full object-contain // Pastikan gambar terlihat dengan baik
-                animate-floatAndRotate // Nama animasi custom Anda
+                w-full h-full object-contain
+                animate-floatAndRotate
                 transition-transform duration-300 ease-in-out
-                hover:scale-105 hover:rotate-2 // Efek saat hover
+                hover:scale-105 hover:rotate-2
               "
             />
 
