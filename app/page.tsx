@@ -172,7 +172,7 @@ export default function LandingPage() {
                   type="number"
                   value={formData.usia}
                   onChange={(e) => setFormData({ ...formData, usia: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-black"
                   placeholder="25"
                   required
                 />
@@ -185,7 +185,7 @@ export default function LandingPage() {
                 <select
                   value={formData.gender}
                   onChange={(e) => setFormData({ ...formData, gender: e.target.value as 'pria' | 'wanita' })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-black"
                 >
                   <option value="pria">Pria</option>
                   <option value="wanita">Wanita</option>
@@ -204,7 +204,7 @@ export default function LandingPage() {
                   step="0.1"
                   value={formData.berat_kg}
                   onChange={(e) => setFormData({ ...formData, berat_kg: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-black"
                   placeholder="70"
                   required
                 />
@@ -218,7 +218,7 @@ export default function LandingPage() {
                   type="number"
                   value={formData.tinggi_cm}
                   onChange={(e) => setFormData({ ...formData, tinggi_cm: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-black"
                   placeholder="170"
                   required
                 />
@@ -233,7 +233,7 @@ export default function LandingPage() {
               <select
                 value={formData.level_aktivitas}
                 onChange={(e) => setFormData({ ...formData, level_aktivitas: parseFloat(e.target.value) })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition text-black"
               >
                 {activityLevels.map((level) => (
                   <option key={level.value} value={level.value}>
