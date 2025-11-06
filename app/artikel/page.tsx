@@ -66,9 +66,10 @@ export default function ArtikelPage() {
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <a href="/dashboard" className="text-gray-700 hover:text-emerald-600">Dashboard</a>
-              <a href="/kalkulator" className="text-gray-700 hover:text-emerald-600">Kalkulator</a>
-              <a href="/artikel" className="text-emerald-600 font-semibold">Artikel</a>
+              <a href="/dashboard" className="text-emerald-600 font-semibold">Dashboard</a>
+              <a href="/riwayat" className="text-gray-700 hover:text-emerald-600">Riwayat</a>
+              <a href="/kalkulator" className="text-gray-700 hover:text-emerald-600">Database Pangan</a>
+              <a href="/artikel" className="text-gray-700 hover:text-emerald-600">Artikel</a>
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-red-600 transition"

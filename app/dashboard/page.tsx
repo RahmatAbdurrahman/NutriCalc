@@ -10,6 +10,7 @@ import {
   searchFoods,
   getFoodURTs,
   addFoodLog,
+  activityLevels,
   type Food,
   type URTConversion
 } from '@/lib/supabase'
@@ -20,9 +21,11 @@ import {
   Search, 
   X, 
   Target,
-  TrendingUp,
-  Flame,
-  Activity
+  Activity,
+  Edit,
+  Save,
+  Ruler,
+  Weight
 } from 'lucide-react'
 
 export default function DashboardPage() {
@@ -40,6 +43,7 @@ export default function DashboardPage() {
 
   // Modal states
   const [showAddFoodModal, setShowAddFoodModal] = useState(false)
+  const [showUpdateDataModal, setShowUpdateDataModal] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Food[]>([])
   const [selectedFood, setSelectedFood] = useState<Food | null>(null)
@@ -48,8 +52,16 @@ export default function DashboardPage() {
   const [quantity, setQuantity] = useState(1)
   const [mealType, setMealType] = useState<'sarapan' | 'makan_siang' | 'makan_malam' | 'snack'>('sarapan')
 
+  // Update data form
+  const [updateFormData, setUpdateFormData] = useState({
+    berat_kg: '',
+    tinggi_cm: '',
+    level_aktivitas: 1.55
+  })
+
   const [loading, setLoading] = useState(true)
   const [addingFood, setAddingFood] = useState(false)
+  const [updating, setUpdating] = useState(false)
 
   // Load user and profile
   useEffect(() => {
@@ -76,6 +88,13 @@ export default function DashboardPage() {
       }
 
       setProfile(profileData)
+      
+      // Set form data
+      setUpdateFormData({
+        berat_kg: profileData.berat_kg.toString(),
+        tinggi_cm: profileData.tinggi_cm.toString(),
+        level_aktivitas: profileData.level_aktivitas
+      })
 
       // Calculate nutrition target
       const age = calculateAge(profileData.tgl_lahir)
@@ -123,6 +142,54 @@ export default function DashboardPage() {
       carbs: Math.round(totalCarbs * 10) / 10,
       fat: Math.round(totalFat * 10) / 10
     })
+  }
+
+  // Update profile & recalculate
+  const handleUpdateData = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setUpdating(true)
+
+    try {
+      // Update profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          berat_kg: parseFloat(updateFormData.berat_kg),
+          tinggi_cm: parseInt(updateFormData.tinggi_cm),
+          level_aktivitas: updateFormData.level_aktivitas
+        })
+        .eq('id', user.id)
+
+      if (updateError) throw updateError
+
+      // Recalculate nutrition
+      const age = calculateAge(profile.tgl_lahir)
+      const nutritionData = await calculateNutrition({
+        usia: age,
+        gender: profile.gender,
+        berat_kg: parseFloat(updateFormData.berat_kg),
+        tinggi_cm: parseInt(updateFormData.tinggi_cm),
+        level_aktivitas: updateFormData.level_aktivitas
+      })
+
+      setNutritionTarget(nutritionData.data)
+      
+      // Update local profile
+      setProfile({
+        ...profile,
+        berat_kg: parseFloat(updateFormData.berat_kg),
+        tinggi_cm: parseInt(updateFormData.tinggi_cm),
+        level_aktivitas: updateFormData.level_aktivitas
+      })
+
+      setShowUpdateDataModal(false)
+      alert('✅ Data berhasil diperbarui!')
+    } catch (error) {
+      console.error('Error updating data:', error)
+      alert('❌ Gagal memperbarui data')
+    } finally {
+      setUpdating(false)
+    }
   }
 
   // Search foods
@@ -211,17 +278,18 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
               <img
-                 src="/logo.png"
-                  alt="NutriCalc+ Logo"
-                  className="mb-1 w-10 h-10 rounded-xl object-cover"
-                />
+                src="/logo.png"
+                alt="NutriCalc+ Logo"
+                className="mb-1 w-10 h-10 rounded-xl object-cover"
+              />
               <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
                 NutriCalc+
               </span>
             </div>
             <div className="flex items-center gap-4">
               <a href="/dashboard" className="text-emerald-600 font-semibold">Dashboard</a>
-              <a href="/kalkulator" className="text-gray-700 hover:text-emerald-600">Kalkulator</a>
+              <a href="/riwayat" className="text-gray-700 hover:text-emerald-600">Riwayat</a>
+              <a href="/kalkulator" className="text-gray-700 hover:text-emerald-600">Database Pangan</a>
               <a href="/artikel" className="text-gray-700 hover:text-emerald-600">Artikel</a>
               <button
                 onClick={handleLogout}
@@ -251,10 +319,19 @@ export default function DashboardPage() {
           {/* LEFT: Target Harian */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-3xl shadow-xl p-6 sticky top-24">
-              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <Target className="w-5 h-5 text-emerald-600" />
-                Target Harian Anda
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Target className="w-5 h-5 text-emerald-600" />
+                  Target Harian
+                </h2>
+                <button
+                  onClick={() => setShowUpdateDataModal(true)}
+                  className="p-2 hover:bg-emerald-50 rounded-lg transition group"
+                  title="Perbarui Data"
+                >
+                  <Edit className="w-5 h-5 text-gray-600 group-hover:text-emerald-600" />
+                </button>
+              </div>
 
               {nutritionTarget && (
                 <div className="space-y-4">
@@ -328,6 +405,11 @@ export default function DashboardPage() {
                     <div className="text-2xl font-bold text-emerald-600">{nutritionTarget.bmi}</div>
                     <div className="text-sm text-gray-600">{nutritionTarget.bmi_category}</div>
                   </div>
+
+                  {/* Info Metode */}
+                  <div className="text-xs text-gray-500 text-center">
+                    {nutritionTarget.calculation_method}
+                  </div>
                 </div>
               )}
             </div>
@@ -351,7 +433,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Food List */}
-              <div className="space-y-3">
+              <div className="space-y-3 mb-6">
                 {todayLogs.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -390,12 +472,105 @@ export default function DashboardPage() {
                   })
                 )}
               </div>
+
+              {/* Link to History */}
+              <div className="text-center">
+                <a
+                  href="/riwayat"
+                  className="inline-block px-6 py-2 text-emerald-600 hover:text-emerald-700 font-medium transition"
+                >
+                  Lihat Riwayat Lengkap →
+                </a>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ADD FOOD MODAL */}
+      {/* UPDATE DATA MODAL */}
+      {showUpdateDataModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Perbarui Data Profil</h2>
+              <button
+                onClick={() => setShowUpdateDataModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateData} className="space-y-6">
+              {/* Berat & Tinggi */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="flex items-center gap-2">
+                      <Weight className="w-4 h-4" />
+                      Berat Badan (kg)
+                    </div>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={updateFormData.berat_kg}
+                    onChange={(e) => setUpdateFormData({ ...updateFormData, berat_kg: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-black"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <div className="flex items-center gap-2">
+                      <Ruler className="w-4 h-4" />
+                      Tinggi Badan (cm)
+                    </div>
+                  </label>
+                  <input
+                    type="number"
+                    value={updateFormData.tinggi_cm}
+                    onChange={(e) => setUpdateFormData({ ...updateFormData, tinggi_cm: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-black"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Level Aktivitas */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Level Aktivitas Fisik
+                </label>
+                <select
+                  value={updateFormData.level_aktivitas}
+                  onChange={(e) => setUpdateFormData({ ...updateFormData, level_aktivitas: parseFloat(e.target.value) })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-black"
+                >
+                  {activityLevels.map((level) => (
+                    <option key={level.value} value={level.value}>
+                      {level.label} - {level.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={updating}
+                className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl hover:shadow-xl transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Save className="w-5 h-5" />
+                {updating ? 'Menyimpan...' : 'Simpan & Hitung Ulang'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ADD FOOD MODAL - (sama seperti sebelumnya) */}
       {showAddFoodModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
@@ -416,7 +591,6 @@ export default function DashboardPage() {
 
             {!selectedFood ? (
               <>
-                {/* Search Bar */}
                 <div className="relative mb-4">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -429,7 +603,6 @@ export default function DashboardPage() {
                   />
                 </div>
 
-                {/* Search Results */}
                 <div className="space-y-2">
                   {searchResults.map((food) => (
                     <button
@@ -447,7 +620,6 @@ export default function DashboardPage() {
               </>
             ) : (
               <>
-                {/* Selected Food Details */}
                 <div className="mb-6">
                   <div className="p-4 bg-emerald-50 rounded-xl">
                     <h3 className="font-bold text-lg text-gray-900">{selectedFood.food_name}</h3>
@@ -457,7 +629,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Meal Type */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Waktu Makan</label>
                   <div className="grid grid-cols-2 gap-2">
@@ -471,10 +642,10 @@ export default function DashboardPage() {
                         key={meal.value}
                         type="button"
                         onClick={() => setMealType(meal.value as any)}
-                        className={`p-3 border-2 rounded-xl transition text-black hover:bg-emerald-50${
+                        className={`p-3 border-2 rounded-xl transition ${
                           mealType === meal.value
                             ? 'border-emerald-500 bg-emerald-50'
-                            : 'border-gray-300'
+                            : 'border-gray-300 hover:bg-gray-50'
                         }`}
                       >
                         {meal.label}
@@ -483,7 +654,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* URT Selection */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Ukuran</label>
                   <select
@@ -492,7 +662,7 @@ export default function DashboardPage() {
                       const urt = foodURTs.find(u => u.urt_id === e.target.value)
                       setSelectedURT(urt || null)
                     }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black "
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black"
                   >
                     {foodURTs.map((urt) => (
                       <option key={urt.urt_id} value={urt.urt_id}>
@@ -502,7 +672,6 @@ export default function DashboardPage() {
                   </select>
                 </div>
 
-                {/* Quantity */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Jumlah</label>
                   <input
@@ -515,7 +684,6 @@ export default function DashboardPage() {
                   />
                 </div>
 
-                {/* Summary */}
                 {selectedURT && (
                   <div className="p-4 bg-blue-50 rounded-xl mb-6">
                     <div className="text-sm text-gray-700 mb-2">Total yang akan dicatat:</div>
@@ -528,7 +696,6 @@ export default function DashboardPage() {
                   </div>
                 )}
 
-                {/* Action Buttons */}
                 <div className="flex gap-3">
                   <button
                     onClick={() => setSelectedFood(null)}
@@ -539,7 +706,7 @@ export default function DashboardPage() {
                   <button
                     onClick={handleAddFood}
                     disabled={addingFood}
-                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg transition disabled:opacity-50 text-black"
+                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg transition disabled:opacity-50"
                   >
                     {addingFood ? 'Menambahkan...' : 'Tambahkan'}
                   </button>
