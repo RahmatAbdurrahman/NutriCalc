@@ -133,13 +133,17 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/30">
-                <Activity size={24} />
-              </div>
-              <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-emerald-800">
-                NutriCalc<span className="text-emerald-500">+</span>
-              </span>
-            </div>
+            <motion.img 
+              src="/logo.png" 
+              alt="NutriCalc+ Logo"
+              whileHover={{ rotate: 10, scale: 1.1 }} // Efek interaktif saat hover
+              className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20"
+            />
+            
+            <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-emerald-800">
+              NutriCalc<span className="text-emerald-500">+</span>
+            </span>
+          </div>
             <div className="flex gap-4">
               <button className="px-5 py-2 font-medium hover:text-emerald-600 transition-colors">Masuk</button>
               <button className="px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 hover:shadow-lg transition-all hover:scale-105 active:scale-95">
@@ -179,7 +183,7 @@ export default function LandingPage() {
               <h1 className="text-6xl lg:text-7xl font-extrabold tracking-tight text-gray-900 leading-[1.1]">
                 Hitung Gizi. <br/>
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 animate-gradient-x">
-                  Raih Potensi.
+                  Mulai Tracking Harian Anda.
                 </span>
               </h1>
 
