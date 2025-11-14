@@ -21,12 +21,10 @@ import {
   Heart, LogOut, Plus, Search, X, Target, Activity, Edit, Save, Ruler, Weight, ChevronRight, Flame, Zap, Droplet
 } from 'lucide-react'
 
-// =====================================================
-// 1. REUSABLE 3D BACKGROUND (Sama dengan Landing Page)
-// =====================================================
+// 1. REUSABLE 3D BACKGROUND
 function AnimatedBackground() {
   return (
-    <div className="fixed inset-0 -z-10 h-full w-full bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
+    <div className="fixed inset-0 -z-10 h-full w-full bg-linear-to-br from-emerald-50 via-teal-50 to-cyan-50">
       <Canvas camera={{ position: [0, 0, 5] }}>
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 5]} intensity={1} />
@@ -50,9 +48,7 @@ function AnimatedBackground() {
   )
 }
 
-// =====================================================
 // 2. MAIN DASHBOARD COMPONENT
-// =====================================================
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -193,7 +189,7 @@ export default function DashboardPage() {
     <div className="relative min-h-screen text-gray-800 font-sans overflow-x-hidden">
       <AnimatedBackground />
 
-      {/* --- GLASS NAVBAR --- */}
+      {/* --- GLASS NAVBAR (FIXED) --- */}
       <motion.nav 
         initial={{ y: -100 }} animate={{ y: 0 }}
         className="sticky top-0 z-40 bg-white/40 backdrop-blur-xl border-b border-white/50 shadow-sm"
@@ -201,16 +197,17 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-3">
-              <motion.img src="/logo.png" alt="Logo" whileHover={{ rotate: 10, scale: 1.1 }} className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
-              <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-emerald-800">
+              <motion.img src="/logo.png" alt="Logo" whileHover={{ rotate: 10, scale: 1.1 }} className="w-10 h-10 mb-1.5 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
+              <span className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-gray-800 to-emerald-800">
                 NutriCalc<span className="text-emerald-500">+</span>
               </span>
             </div>
             <div className="flex items-center gap-6">
               <div className="hidden md:flex gap-6 text-sm font-medium text-gray-600">
-                <a href="#" className="text-emerald-700 font-bold">Dashboard</a>
+                <a href="/dashboard" className="text-emerald-700 font-bold">Dashboard</a>
                 <a href="/riwayat" className="hover:text-emerald-600 transition">Riwayat</a>
-                <a href="/kalkulator" className="hover:text-emerald-600 transition">Database</a>
+                <a href="/kalkulator" className="hover:text-emerald-600 transition">Database Pangan</a>
+                <a href="/artikel" className="hover:text-emerald-600 transition">Artikel</a>
               </div>
               <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-full border border-transparent hover:border-red-200 transition-all text-sm font-bold">
                 <LogOut className="w-4 h-4" /> Keluar
@@ -229,8 +226,7 @@ export default function DashboardPage() {
           className="mb-10 flex justify-between items-end"
         >
           <div>
-            <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
-              Halo, <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500">{user?.email?.split('@')[0]}</span> 👋
+            <h1 className="text-4xl font-extrabold text-gray-900 mb-2">              Halo, <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-500 to-teal-500">{user?.email?.split('@')[0]}</span> 👋
             </h1>
             <p className="text-gray-500 font-medium">Ayo capai target nutrisi hari ini!</p>
           </div>
@@ -243,7 +239,7 @@ export default function DashboardPage() {
             initial={{ x: -50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.2 }}
             className="lg:col-span-1 space-y-8"
           >
-            <div className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-[2rem] shadow-xl p-6 relative overflow-hidden">
+            <div className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6 relative overflow-hidden">
               <div className="flex justify-between items-center mb-6 relative z-10">
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                   <div className="p-2 bg-emerald-100 rounded-lg text-emerald-600"><Target size={20} /></div>
@@ -265,7 +261,7 @@ export default function DashboardPage() {
                     <div className="w-full bg-gray-200/50 rounded-full h-3 overflow-hidden">
                       <motion.div 
                         initial={{ width: 0 }} animate={{ width: `${Math.min(calorieProgress, 100)}%` }}
-                        className="h-full bg-gradient-to-r from-orange-400 to-red-500 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.5)]"
+                        className="h-full bg-linear-to-r from-orange-400 to-red-500 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.5)]"
                       />
                     </div>
                   </div>
@@ -279,7 +275,8 @@ export default function DashboardPage() {
                           <span>{todayTotal.protein} / {nutritionTarget.protein_g}g</span>
                        </div>
                        <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
-                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(proteinProgress, 100)}%` }} className="h-full bg-gradient-to-r from-blue-400 to-blue-600" />
+                         {/* Tailwind FIX: bg-gradient-to-r -> bg-linear-to-r */}
+                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(proteinProgress, 100)}%` }} className="h-full bg-linear-to-r from-blue-400 to-blue-600" />
                        </div>
                      </div>
                      {/* Carbs */}
@@ -289,7 +286,7 @@ export default function DashboardPage() {
                           <span>{todayTotal.carbs} / {nutritionTarget.carbs_g}g</span>
                        </div>
                        <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
-                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(carbsProgress, 100)}%` }} className="h-full bg-gradient-to-r from-amber-400 to-yellow-500" />
+                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(carbsProgress, 100)}%` }} className="h-full bg-linear-to-r from-amber-400 to-yellow-500" />
                        </div>
                      </div>
                      {/* Fat */}
@@ -299,13 +296,14 @@ export default function DashboardPage() {
                           <span>{todayTotal.fat} / {nutritionTarget.fat_g}g</span>
                        </div>
                        <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
-                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(fatProgress, 100)}%` }} className="h-full bg-gradient-to-r from-purple-400 to-purple-600" />
+                         {/* Tailwind FIX: bg-gradient-to-r -> bg-linear-to-r */}
+                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(fatProgress, 100)}%` }} className="h-full bg-linear-to-r from-purple-400 to-purple-600" />
                        </div>
                      </div>
                   </div>
 
                   {/* BMI Card */}
-                  <div className="mt-4 p-4 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
+                  <div className="mt-4 p-4 bg-linear-to-br from-emerald-500 to-teal-600 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
                     <div className="text-xs font-medium opacity-80">Status BMI</div>
                     <div className="flex justify-between items-end mt-1">
                       <div className="text-3xl font-bold">{nutritionTarget.bmi}</div>
@@ -313,6 +311,10 @@ export default function DashboardPage() {
                         {nutritionTarget.bmi_category}
                       </div>
                     </div>
+                  </div>
+
+                  <div className="text-center text-xs text-gray-400 font-medium pt-2">
+                    Metode Kalkulasi: {nutritionTarget.calculation_method}
                   </div>
                 </div>
               )}
@@ -326,7 +328,7 @@ export default function DashboardPage() {
             initial={{ x: 50, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.4 }}
             className="lg:col-span-2"
           >
-            <div className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-[2rem] shadow-xl p-8 min-h-[500px] relative">
+            <div className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-8 min-h-[500px] relative">
               <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
                 <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                   <div className="p-2 bg-blue-100 rounded-lg text-blue-600"><Activity size={24} /></div>
@@ -361,7 +363,7 @@ export default function DashboardPage() {
                         className="p-5 bg-white/40 border border-white/60 rounded-2xl shadow-sm flex justify-between items-center group transition-all"
                       >
                         <div className="flex items-center gap-4">
-                           <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-yellow-100 rounded-xl flex items-center justify-center text-2xl">
+                           <div className="w-12 h-12 bg-linear-to-br from-orange-100 to-yellow-100 rounded-xl flex items-center justify-center text-2xl">
                               {log.meal_type === 'sarapan' ? '🌅' : log.meal_type === 'makan_siang' ? '☀️' : log.meal_type === 'makan_malam' ? '🌙' : '🍎'}
                            </div>
                            <div>
@@ -383,12 +385,23 @@ export default function DashboardPage() {
                   })
                 )}
               </div>
+              
+              {todayLogs.length > 0 && (
+                <div className="text-center mt-8">
+                  <a
+                    href="/riwayat"
+                    className="inline-flex items-center gap-2 text-emerald-600 font-bold hover:text-emerald-800 transition group"
+                  >
+                    Lihat Riwayat Lengkap 
+                    <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </a>
+                </div>
+              )}
             </div>
           </motion.div>
         </div>
       </div>
 
-      {/* ================= MODALS (Glassmorphism) ================= */}
       <AnimatePresence>
         {showUpdateDataModal && (
           <motion.div 
@@ -397,7 +410,7 @@ export default function DashboardPage() {
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              className="bg-white/90 backdrop-blur-xl rounded-[2rem] w-full max-w-md p-8 border border-white/50 shadow-2xl"
+              className="bg-white/90 backdrop-blur-xl rounded-4xl w-full max-w-md p-8 border border-white/50 shadow-2xl"
             >
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">Update Biometrik</h2>
@@ -438,7 +451,7 @@ export default function DashboardPage() {
           >
             <motion.div 
                initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-               className="bg-white/95 backdrop-blur-xl rounded-[2rem] w-full max-w-2xl max-h-[85vh] flex flex-col border border-white/50 shadow-2xl overflow-hidden"
+               className="bg-white/95 backdrop-blur-xl rounded-4xl w-full max-w-2xl max-h-[85vh] flex flex-col border border-white/50 shadow-2xl overflow-hidden"
             >
                {/* Header */}
                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white/50">
@@ -481,6 +494,7 @@ export default function DashboardPage() {
                        <div>
                          <label className="text-sm font-bold text-gray-600 mb-2 block">Waktu Makan</label>
                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {/* TypeScript Kritis FIX Line 504: v. -> v: */}
                             {[{v:'sarapan',l:'🌅 Pagi'},{v:'makan_siang',l:'☀️ Siang'},{v:'makan_malam',l:'🌙 Malam'},{v:'snack',l:'🍎 Snack'}].map(m => (
                                <button key={m.v} onClick={() => setMealType(m.v as any)} 
                                  className={`py-3 rounded-xl text-sm font-bold transition border ${mealType===m.v ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg transform scale-105' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
@@ -496,6 +510,7 @@ export default function DashboardPage() {
                              <label className="text-sm font-bold text-gray-600 mb-2 block">Satuan</label>
                              <select onChange={e => setSelectedURT(foodURTs.find(u => u.urt_id === e.target.value) || null)} 
                                className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-emerald-500">
+                                {/* TypeScript Kritis FIX Line 519: u.urt_d -> u.urt_id */}
                                 {foodURTs.map(u => <option key={u.urt_id} value={u.urt_id}>{u.urt_name} ({u.equivalent_grams}g)</option>)}
                              </select>
                           </div>
@@ -519,9 +534,24 @@ export default function DashboardPage() {
                           </div>
                        )}
 
-                       <button onClick={handleAddFood} disabled={addingFood} className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 transition transform active:scale-95">
-                          {addingFood ? 'Menyimpan...' : 'Simpan ke Jurnal'}
-                       </button>
+                       {/* Tombol Kembali dan Simpan */}
+                       <div className="flex gap-4">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedFood(null)}
+                            className="flex-1 py-3 bg-white/80 border border-gray-300 rounded-xl hover:bg-gray-50 transition text-gray-700 font-bold"
+                          >
+                            Kembali
+                          </button>
+                          {/* Tailwind FIX: bg-gradient-to-r -> bg-linear-to-r */}
+                          <button
+                            onClick={handleAddFood}
+                            disabled={addingFood}
+                            className="flex-1 py-3 bg-linear-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 transition transform active:scale-95"
+                          >
+                            {addingFood ? 'Menyimpan...' : 'Simpan'}
+                          </button>
+                       </div>
                     </div>
                   )}
                </div>
