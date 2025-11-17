@@ -262,8 +262,27 @@ export async function getFoodURTs(foodId: string) {
     .select('*')
     .eq('food_id', foodId)
 
-  if (error) throw error
-  return data as URTConversion[]
+  if (error) {
+    console.error('Error fetching URTs:', error)
+    throw error
+  }
+
+
+  const defaultGramURT: URTConversion = {
+    urt_id: `default-gram-${foodId}`,
+    food_id: foodId,
+    urt_name: 'gram',
+    equivalent_grams: 1,
+  }
+
+  if (!data) return [defaultGramURT]
+  const hasGram = data.find(urt => urt.urt_name.toLowerCase() === 'gram');
+  
+  if (hasGram) {
+    return data as URTConversion[];
+  }
+
+  return [defaultGramURT, ...data] as URTConversion[]
 }
 
 /**

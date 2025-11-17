@@ -2,240 +2,249 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Canvas } from '@react-three/fiber'
+import { Sphere, MeshDistortMaterial, Float, Stars } from '@react-three/drei'
+import { motion } from 'framer-motion'
 import { supabase, type Food } from '@/lib/supabase'
-import { Heart, LogOut, Database, Search, Filter } from 'lucide-react'
+import { LogOut, Database, Search, Filter, Flame, Zap, Droplet, Activity } from 'lucide-react'
 
+// =====================================================
+// 1. REUSABLE 3D BACKGROUND
+// =====================================================
+function AnimatedBackground() {
+  return (
+    <div className="fixed inset-0 -z-10 h-full w-full bg-linear-to-br from-emerald-50 via-teal-50 to-cyan-50">
+      <Canvas camera={{ position: [0, 0, 5] }}>
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[10, 10, 5]} intensity={1} />
+        <Float speed={2} rotationIntensity={1} floatIntensity={2}>
+          <Sphere args={[1, 100, 200]} scale={1.8} position={[2, 0, -2]}>
+            <MeshDistortMaterial color="#34d399" attach="material" distort={0.6} speed={2} roughness={0.2} />
+          </Sphere>
+        </Float>
+        <Float speed={1.5} rotationIntensity={1.5} floatIntensity={1.5}>
+           <Sphere args={[1, 64, 64]} scale={1.2} position={[-2, -1, -3]}>
+            <MeshDistortMaterial color="#2dd4bf" attach="material" distort={0.4} speed={3} opacity={0.6} transparent />
+          </Sphere>
+        </Float>
+        <Stars radius={10} depth={50} count={1000} factor={4} saturation={0} fade speed={1} />
+      </Canvas>
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-30 pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[50vw] h-[50vw] bg-emerald-300/30 rounded-full blur-[100px]" />
+        <div className="absolute top-[40%] -right-[10%] w-[40vw] h-[40vw] bg-teal-400/30 rounded-full blur-[120px]" />
+      </div>
+    </div>
+  )
+}
+
+// =====================================================
+// 2. MAIN DATABASE PANGAN PAGE (FIXED)
+// =====================================================
 export default function DatabasePanganPage() {
   const router = useRouter()
-  const [foods, setFoods] = useState<Food[]>([])
+  // HANYA 'filteredFoods' yang diperlukan. State 'foods' (data lengkap) dihapus.
   const [filteredFoods, setFilteredFoods] = useState<Food[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('Semua')
   const [loading, setLoading] = useState(true)
 
-  const categories = ['Semua', 'Karbohidrat', 'Protein Hewani', 'Protein Nabati', 'Sayuran', 'Buah', 'Susu', 'Minuman']
+  // PENTING: Pastikan kategori ini SESUAI dengan data CSV Anda.
+  // Ini adalah satu-satunya bagian yang masih hardcoded.
+  const categories = [
+    'Semua', 'Karbohidrat', 'Protein Hewani', 'Protein Nabati', 
+    'Sayuran', 'Buah', 'Susu', 'Minuman', 
+    'Lemak & Minyak', 'Daging Olahan' // (Tambahkan/sesuaikan)
+  ]
 
+  // --- INI ADALAH PERBAIKAN PERFORMA UTAMA ---
+  // Kita hanya punya SATU useEffect yang bereaksi terhadap filter.
+  // Data tidak diambil semua sekaligus, tapi difilter di database.
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
+    const fetchFilteredFoods = async () => {
+      setLoading(true)
+
+      // Memulai kueri Supabase
+      let query = supabase.from('foods').select('*')
+
+      // 1. Filter Kategori (di sisi database)
+      if (selectedCategory !== 'Semua') {
+        query = query.eq('food_category', selectedCategory)
       }
 
-      // Load all foods
-      const { data: foodsData } = await supabase
-        .from('foods')
-        .select('*')
-        .order('food_name', { ascending: true })
+      // 2. Filter Pencarian (di sisi database)
+      if (searchQuery.length > 2) {
+        query = query.ilike('food_name', `%${searchQuery}%`)
+      }
 
-      setFoods(foodsData || [])
+      // 3. Batasi Hasil (Paginasi) - Sangat Penting!
+      query = query.limit(50).order('food_name', { ascending: true })
+
+      // Eksekusi kueri
+      const { data: foodsData, error } = await query
+
+      if (error) {
+        console.error('Error fetching foods:', error)
+      }
+      
       setFilteredFoods(foodsData || [])
       setLoading(false)
     }
-    checkUser()
-  }, [router])
 
-  // Filter foods
-  useEffect(() => {
-    let filtered = foods
+    // Gunakan debounce untuk pencarian agar tidak memanggil API di setiap ketukan
+    const handler = setTimeout(() => {
+      fetchFilteredFoods()
+    }, 300) // Tunda 300ms setelah user berhenti mengetik
 
-    // Filter by category
-    if (selectedCategory !== 'Semua') {
-      filtered = filtered.filter(food => food.food_category === selectedCategory)
+    return () => {
+      clearTimeout(handler) // Bersihkan timer
     }
-
-    // Filter by search query
-    if (searchQuery) {
-      filtered = filtered.filter(food => 
-        food.food_name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    }
-
-    setFilteredFoods(filtered)
-  }, [searchQuery, selectedCategory, foods])
+  }, [searchQuery, selectedCategory, router]) // Dijalankan ulang setiap filter berubah
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat database...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
-      {/* NAVBAR */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
+    <div className="relative min-h-screen text-gray-800 font-sans overflow-x-hidden">
+      <AnimatedBackground />
+
+      {/* --- GLASS NAVBAR --- */}
+      <motion.nav 
+        initial={{ y: -100 }} animate={{ y: 0 }}
+        className="sticky top-0 z-40 bg-white/40 backdrop-blur-xl border-b border-white/50 shadow-sm"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <img
-                src="/logo.png"
-                alt="NutriCalc+ Logo"
-                className="mb-1 w-10 h-10 rounded-xl object-cover"
-              />
-              <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                NutriCalc+
+          <div className="flex justify-between items-center h-20">
+            <div className="flex items-center gap-3">
+              <motion.img src="/logo.png" alt="Logo" whileHover={{ rotate: 10, scale: 1.1 }} className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
+              <span className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-gray-800 to-emerald-800">
+                NutriCalc<span className="text-emerald-500">+</span>
               </span>
             </div>
-            <div className="flex items-center gap-4">
-              <a href="/dashboard" className="text-gray-700 hover:text-emerald-600">Dashboard</a>
-              <a href="/riwayat" className="text-gray-700 hover:text-emerald-600">Riwayat</a>
-              <a href="/kalkulator" className="text-emerald-600 font-semibold">Database Pangan</a>
-              <a href="/artikel" className="text-gray-700 hover:text-emerald-600">Artikel</a>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-red-600 transition"
-              >
-                <LogOut className="w-4 h-4" />
-                Keluar
+            <div className="flex items-center gap-6">
+              <div className="hidden md:flex gap-6 text-sm font-medium text-gray-600">
+                <a href="/dashboard" className="hover:text-emerald-600 transition">Dashboard</a>
+                <a href="/riwayat" className="hover:text-emerald-600 transition">Riwayat</a>
+                <a href="/kalkulator" className="text-emerald-700 font-bold">Database Pangan</a>
+                <a href="/artikel" className="hover:text-emerald-600 transition">Artikel</a>
+              </div>
+              <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-full border border-transparent hover:border-red-200 transition-all text-sm font-bold">
+                <LogOut className="w-4 h-4" /> Keluar
               </button>
             </div>
           </div>
         </div>
-      </nav>
+      </motion.nav>
 
-      {/* MAIN CONTENT */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      {/* --- MAIN CONTENT --- */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        
         {/* Header */}
-        <div className="mb-8">
-          <div className="inline-block p-3 bg-emerald-100 rounded-2xl mb-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <div className="inline-block p-4 bg-white/50 backdrop-blur-lg rounded-2xl mb-4 border border-white/60">
             <Database className="w-8 h-8 text-emerald-600" />
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
             Database Pangan TKPI
           </h1>
-          <p className="text-gray-600">
-            Tabel Komposisi Pangan Indonesia - {foods.length} makanan tersedia
+          <p className="text-gray-500 font-medium">
+            Tabel Komposisi Pangan Indonesia. (Menampilkan 50 hasil teratas)
           </p>
-        </div>
+        </motion.div>
 
-        <div className="bg-white rounded-3xl shadow-xl p-6">
+        {/* Kontainer Filter & Hasil (UI "Grown Up") */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6"
+        >
           {/* Search & Filter */}
           <div className="mb-6 space-y-4">
-            {/* Search Bar */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 text-black"
-                placeholder="Cari makanan..."
+                className="w-full pl-12 pr-4 py-4 bg-white/50 border border-transparent focus:border-emerald-300 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none text-gray-900 placeholder-gray-500 transition focus:bg-white"
+                placeholder="Cari makanan (min. 3 huruf)..."
               />
             </div>
-
-            {/* Category Filter */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+            
+            {/* Filter Kategori (Glass Style) */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
               <Filter className="w-5 h-5 text-gray-600 flex-shrink-0" />
               {categories.map((category) => (
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition-all ${
+                  className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition-all border ${
                     selectedCategory === category
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-gray-900 text-white border-gray-900 shadow-lg'
+                      : 'bg-white/40 text-gray-700 border-white/60 hover:bg-white/80'
                   }`}
                 >
                   {category}
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Results Count */}
-            <div className="text-sm text-gray-600">
-              Menampilkan {filteredFoods.length} dari {foods.length} makanan
+          {/* --- PENGGANTI TABEL: GRID KARTU KACA --- */}
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
             </div>
-          </div>
-
-          {/* Foods Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Nama Makanan</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Kategori</th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Energi<br/><span className="text-xs font-normal">(kkal/100g)</span></th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Protein<br/><span className="text-xs font-normal">(g/100g)</span></th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Karbo<br/><span className="text-xs font-normal">(g/100g)</span></th>
-                  <th className="text-center py-3 px-4 font-semibold text-gray-700">Lemak<br/><span className="text-xs font-normal">(g/100g)</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredFoods.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center py-12 text-gray-600">
-                      Tidak ada makanan ditemukan
-                    </td>
-                  </tr>
-                ) : (
-                  filteredFoods.map((food, index) => (
-                    <tr 
-                      key={food.food_id} 
-                      className={`border-b border-gray-100 hover:bg-emerald-50 transition ${
-                        index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                      }`}
-                    >
-                      <td className="py-3 px-4">
-                        <div className="font-medium text-gray-900">{food.food_name}</div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
-                          {food.food_category}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="font-semibold text-emerald-600">{food.energy_kcal}</span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="font-semibold text-blue-600">{food.protein_g}</span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="font-semibold text-amber-600">{food.carbs_g}</span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span className="font-semibold text-purple-600">{food.fat_g}</span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Info Box */}
-        <div className="mt-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-3xl border-2 border-blue-200">
-          <h3 className="text-xl font-bold text-gray-900 mb-3">
-            📚 Tentang Database TKPI
-          </h3>
-          <p className="text-gray-700 mb-4">
-            Tabel Komposisi Pangan Indonesia (TKPI) merupakan database resmi yang berisi informasi 
-            nilai gizi berbagai jenis pangan yang dikonsumsi masyarakat Indonesia. Data ini digunakan 
-            sebagai acuan dalam sistem NutriCalc+ untuk memberikan kalkulasi gizi yang akurat.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <span className="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700">
-              ✅ Data Resmi Kemenkes
-            </span>
-            <span className="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700">
-              🇮🇩 Makanan Indonesia
-            </span>
-            <span className="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700">
-              📊 Per 100 gram
-            </span>
-          </div>
-        </div>
+          ) : filteredFoods.length === 0 ? (
+            <div className="text-center py-12 text-gray-600">
+              <Search size={40} className="mx-auto mb-4 text-gray-400" />
+              <h3 className="text-xl font-bold">Tidak Ada Makanan Ditemukan</h3>
+              <p>Coba ubah kata kunci atau filter kategori Anda.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredFoods.map((food, index) => (
+                <motion.div
+                  key={food.food_id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-3xl p-5 flex flex-col justify-between shadow-lg"
+                >
+                  {/* Bagian Atas: Nama & Kategori */}
+                  <div>
+                    <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium mb-3">
+                      {food.food_category}
+                    </span>
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">
+                      {food.food_name}
+                    </h3>
+                  </div>
+                  
+                  {/* Bagian Bawah: Makro per 100g */}
+                  <div className="border-t border-white/80 pt-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-600 flex items-center gap-1.5"><Flame size={14} className="text-orange-500" /> Energi</span>
+                      <span className="font-bold text-gray-800">{food.energy_kcal} kkal</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-600 flex items-center gap-1.5"><Zap size={14} className="text-blue-500" /> Protein</span>
+                      <span className="font-bold text-gray-800">{food.protein_g} g</span>
+                    </div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-medium text-gray-600 flex items-center gap-1.5"><Activity size={14} className="text-amber-500" /> Karbo</span>
+                      <span className="font-bold text-gray-800">{food.carbs_g} g</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-600 flex items-center gap-1.5"><Droplet size={14} className="text-purple-500" /> Lemak</span>
+                      <span className="font-bold text-gray-800">{food.fat_g} g</span>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </motion.div>
       </div>
     </div>
   )
