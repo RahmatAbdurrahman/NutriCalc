@@ -5,20 +5,51 @@ import { useRouter } from 'next/navigation'
 import { Canvas } from '@react-three/fiber'
 import { Sphere, MeshDistortMaterial, Float, Stars } from '@react-three/drei'
 import { motion, AnimatePresence } from 'framer-motion'
-import { supabase } from '@/lib/supabase'
+// Impor fungsi-fungsi inti (asumsi Anda memilikinya)
 import { 
-  Heart, LogOut, Activity, BarChart2, CalendarDays, Zap, Droplet, Flame, Target, BookOpen, Clock
+  supabase, 
+  calculateAge, 
+  calculateNutrition,
+  type Food,
+  type Profile
+} from '@/lib/supabase'
+import { 
+  LogOut, Activity, BarChart2, Zap, Droplet, Flame, Target, BookOpen, ChevronLeft, ChevronRight, TrendingUp
 } from 'lucide-react'
 import { 
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend 
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, 
+  PieChart, Pie, Cell, Sector // Untuk Donut Chart
 } from 'recharts'
-import { DayPicker } from 'react-day-picker'
-import 'react-day-picker/dist/style.css'
-import { format, subDays, startOfMonth, endOfMonth, isSameDay } from 'date-fns'
+import { 
+  format, subDays, addDays, startOfISOWeek, endOfISOWeek, isSameDay, eachDayOfInterval, isBefore 
+} from 'date-fns'
 import { id as indonesiaLocale } from 'date-fns/locale'
 
 // =====================================================
-// 1. REUSABLE 3D BACKGROUND
+// 1. Tipe Data untuk Agregasi
+// =====================================================
+type DailyAggregate = {
+  date: string; // 'yyyy-MM-dd'
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  status: 'onTarget' | 'overTarget' | 'underTarget' | 'noData';
+}
+
+type HabitStats = {
+  name: string;
+  count: number;
+  totalCalories: number;
+}
+
+type ConsistencyData = {
+  name: 'Sesuai Target' | 'Di Atas Target' | 'Di Bawah Target';
+  value: number;
+}
+
+// =====================================================
+// 2. REUSABLE 3D BACKGROUND
 // =====================================================
 function AnimatedBackground() {
   return (
@@ -47,107 +78,206 @@ function AnimatedBackground() {
 }
 
 // =====================================================
-// 2. MAIN RIWAYAT PAGE
+// 3. MAIN RIWAYAT PAGE
 // =====================================================
 export default function RiwayatPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [nutritionTarget, setNutritionTarget] = useState<any>(null) // Target harian
+  const [nutritionTarget, setNutritionTarget] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  
-  // States untuk 4 Fitur Fungsional
-  // (CATATAN: Ini adalah data MOCK. Anda perlu logika agregasi data dari Supabase)
+
+  // State untuk data yang sudah diproses
+  const [allDailyData, setAllDailyData] = useState<Map<string, DailyAggregate>>(new Map())
   const [trendData, setTrendData] = useState<any[]>([])
   const [reportCardData, setReportCardData] = useState<any>(null)
   const [habitData, setHabitData] = useState<any>(null)
-  const [calendarModifiers, setCalendarModifiers] = useState<any>({
-    onTarget: [],
-    overTarget: [],
-    underTarget: []
-  })
+  const [consistencyData, setConsistencyData] = useState<ConsistencyData[]>([])
+  const [streakData, setStreakData] = useState(0)
 
+  // State untuk navigasi chart
+  const [currentWeekStart, setCurrentWeekStart] = useState(startOfISOWeek(new Date()))
+
+  // --- Efek Utama: Load dan Proses Semua Data ---
   useEffect(() => {
-    const loadData = async () => {
+    const processAllData = async () => {
+      // 1. Dapatkan User & Profile
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       setUser(user)
 
-      // 1. Ambil target nutrisi (asumsi dari profile, ini perlu disesuaikan)
-      const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      // (Anda perlu logika `calculateNutrition` di sini seperti di dashboard)
-      const mockTarget = { tdee: 2200, protein_g: 120, carbs_g: 250, fat_g: 60 }
-      setNutritionTarget(mockTarget)
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      if (!profile) { router.push('/lengkapi-profil'); return }
 
-      // 2. Ambil data log 30 hari terakhir
-      const thirtyDaysAgo = subDays(new Date(), 30).toISOString()
-      const { data: logsData } = await supabase
+      // 2. Hitung Target Nutrisi
+      const age = calculateAge(profile.tgl_lahir)
+      const { data: target } = await calculateNutrition({
+        usia: age, gender: profile.gender, berat_kg: profile.berat_kg, tinggi_cm: profile.tinggi_cm, level_aktivitas: profile.level_aktivitas
+      })
+      setNutritionTarget(target)
+      const TDEE = target.tdee
+
+      // 3. Ambil Log 90 Hari Terakhir (untuk data yang cukup)
+      const ninetyDaysAgo = subDays(new Date(), 90).toISOString()
+      const { data: rawLogs } = await supabase
         .from('food_logs')
         .select('*, foods(*)')
         .eq('user_id', user.id)
-        .gte('consumed_at', thirtyDaysAgo)
+        .gte('consumed_at', ninetyDaysAgo)
       
-      // 3. (LANGKAH PENTING) Proses data mentah `logsData` menjadi data visual
-      // Ini adalah logika agregasi yang kompleks (group by day, sum, count, etc.)
-      // Untuk demo ini, kita akan MOCK hasilnya:
+      if (!rawLogs) { setLoading(false); return }
+
+      // --- 4. INTI LOGIKA AGREGRASI DATA ---
+
+      // A. Agregasi Per Hari & Kebiasaan
+      const dailyAggregates = new Map<string, Omit<DailyAggregate, 'status'>>()
+      const habitAggregates = new Map<string, HabitStats>()
+
+      for (const log of rawLogs) {
+        const dateKey = format(new Date(log.consumed_at), 'yyyy-MM-dd')
+        const logCalories = (log.foods.energy_kcal / 100) * log.quantity_grams
+        const logProtein = (log.foods.protein_g / 100) * log.quantity_grams
+        const logCarbs = (log.foods.carbs_g / 100) * log.quantity_grams
+        const logFat = (log.foods.fat_g / 100) * log.quantity_grams
+        const foodName = log.foods.food_name
+
+        // Agregasi harian
+        const dayData = dailyAggregates.get(dateKey) || { date: dateKey, totalCalories: 0, totalProtein: 0, totalCarbs: 0, totalFat: 0 }
+        dayData.totalCalories += logCalories
+        dayData.totalProtein += logProtein
+        dayData.totalCarbs += logCarbs
+        dayData.totalFat += logFat
+        dailyAggregates.set(dateKey, dayData)
+
+        // Agregasi kebiasaan
+        const habitData = habitAggregates.get(foodName) || { name: foodName, count: 0, totalCalories: 0 }
+        habitData.count += 1
+        habitData.totalCalories += logCalories
+        habitAggregates.set(foodName, habitData)
+      }
+
+      // B. Finalisasi Data Harian (Menambahkan Status)
+      const finalDailyData = new Map<string, DailyAggregate>()
+      const thirtyDaysInterval = eachDayOfInterval({ start: subDays(new Date(), 29), end: new Date() })
       
-      // --- MOCK DATA UNTUK VISUALISASI ---
+      let consistencyCounts = { onTarget: 0, overTarget: 0, underTarget: 0 }
+      let currentStreak = 0
+      let lastDayWasOnTarget = false
+      let totalCaloriesLast30Days = 0
 
-      // Fitur 1: Data Kalender
-      setCalendarModifiers({
-        onTarget: [new Date(2025, 10, 10), new Date(2025, 10, 11), new Date(2025, 10, 13)],
-        overTarget: [new Date(2025, 10, 8), new Date(2025, 10, 12)],
-        underTarget: [new Date(2025, 10, 9), new Date(2025, 10, 14)]
-      })
+      // Urutkan interval agar bisa hitung streak
+      const sortedInterval = thirtyDaysInterval.sort((a, b) => a.getTime() - b.getTime())
 
-      // Fitur 2: Data Grafik Tren (7 hari terakhir)
-      setTrendData([
-        { name: '08 Nov', kalori: 2500, target: 2200 },
-        { name: '09 Nov', kalori: 1800, target: 2200 },
-        { name: '10 Nov', kalori: 2150, target: 2200 },
-        { name: '11 Nov', kalori: 2250, target: 2200 },
-        { name: '12 Nov', kalori: 2800, target: 2200 },
-        { name: '13 Nov', kalori: 2200, target: 2200 },
-        { name: '14 Nov', kalori: 1900, target: 2200 },
+      for (const day of sortedInterval) {
+        const dateKey = format(day, 'yyyy-MM-dd')
+        const data = dailyAggregates.get(dateKey)
+        let status: DailyAggregate['status'] = 'noData'
+        let totalCalories = 0
+        
+        if (data) {
+          totalCalories = data.totalCalories
+          totalCaloriesLast30Days += totalCalories
+          // Tentukan status (misal, 10% toleransi)
+          if (totalCalories > TDEE * 1.1) {
+            status = 'overTarget'
+            consistencyCounts.overTarget++
+            lastDayWasOnTarget = false
+          } else if (totalCalories < TDEE * 0.9) {
+            status = 'underTarget'
+            consistencyCounts.underTarget++
+            lastDayWasOnTarget = false
+          } else {
+            status = 'onTarget'
+            consistencyCounts.onTarget++
+            currentStreak = lastDayWasOnTarget || currentStreak === 0 ? currentStreak + 1 : 1
+            lastDayWasOnTarget = true
+          }
+        } else {
+          lastDayWasOnTarget = false
+        }
+        
+        finalDailyData.set(dateKey, { 
+          date: dateKey, 
+          totalCalories: data?.totalCalories || 0,
+          totalProtein: data?.totalProtein || 0,
+          totalCarbs: data?.totalCarbs || 0,
+          totalFat: data?.totalFat || 0,
+          status 
+        })
+      }
+
+      // C. Set State untuk Visualisasi
+      setAllDailyData(finalDailyData) // Data mentah untuk chart
+
+      // Fitur Donut Chart
+      setConsistencyData([
+        { name: 'Sesuai Target', value: consistencyCounts.onTarget },
+        { name: 'Di Atas Target', value: consistencyCounts.overTarget },
+        { name: 'Di Bawah Target', value: consistencyCounts.underTarget },
       ])
 
-      // Fitur 3: Data Report Card (30 hari terakhir)
+      // Fitur Streak
+      setStreakData(currentStreak)
+
+      // Fitur Report Card
+      const loggedDays = consistencyCounts.onTarget + consistencyCounts.overTarget + consistencyCounts.underTarget
       setReportCardData({
-        avgCalories: 2250,
-        successDays: 12,
-        totalDays: 30,
-        weakestDay: 'Sabtu'
+        avgCalories: loggedDays > 0 ? Math.round(totalCaloriesLast30Days / loggedDays) : 0,
+        successDays: consistencyCounts.onTarget,
+        totalDays: 30
       })
 
-      // Fitur 4: Data Pola Makan
+      // Fitur Habit
+      const habits = Array.from(habitAggregates.values())
       setHabitData({
-        topByFrequency: [
-          { name: 'Nasi Putih', count: 28 },
-          { name: 'Kopi Susu', count: 25 },
-          { name: 'Telur Dadar', count: 19 },
-        ],
-        topByCalories: [
-          { name: 'Kopi Susu', calories: 4500 },
-          { name: 'Nasi Goreng Spesial', calories: 3800 },
-          { name: 'Nasi Putih', calories: 3500 },
-        ]
+        topByFrequency: [...habits].sort((a, b) => b.count - a.count).slice(0, 3),
+        topByCalories: [...habits].sort((a, b) => b.totalCalories - a.totalCalories).slice(0, 3)
       })
-      // --- AKHIR MOCK DATA ---
 
       setLoading(false)
     }
 
-    loadData()
-  }, [router])
+    processAllData()
+  }, [router]) // Hanya run sekali saat load
+
+  // --- Efek Kedua: Update Chart saat navigasi minggu ---
+  useEffect(() => {
+    if (allDailyData.size === 0) return // Jangan run jika data belum siap
+
+    const weekInterval = eachDayOfInterval({ start: currentWeekStart, end: addDays(currentWeekStart, 6) })
+    
+    const newTrendData = weekInterval.map(day => {
+      const dateKey = format(day, 'yyyy-MM-dd')
+      const data = allDailyData.get(dateKey)
+      return {
+        name: format(day, 'E', { locale: indonesiaLocale }), // Sen, Sel, Rab...
+        kalori: data ? Math.round(data.totalCalories) : 0,
+        target: nutritionTarget.tdee
+      }
+    })
+    
+    setTrendData(newTrendData)
+
+  }, [currentWeekStart, allDailyData, nutritionTarget])
+
 
   const handleLogout = async () => { await supabase.auth.signOut(); router.push('/') }
 
-  // Style untuk kalender heatmap
-  const modifierStyles = {
-    onTarget: { backgroundColor: '#10B981', color: 'white', fontWeight: 'bold' },
-    overTarget: { backgroundColor: '#EF4444', color: 'white', fontWeight: 'bold' },
-    underTarget: { backgroundColor: '#3B82F6', color: 'white', fontWeight: 'bold' },
-    today: { border: '2px solid #059669', borderRadius: '50%' }
+  // --- Navigasi Chart ---
+  const handlePrevWeek = () => {
+    setCurrentWeekStart(subDays(currentWeekStart, 7))
   }
+  const handleNextWeek = () => {
+    // Jangan biarkan navigasi ke masa depan
+    if (isBefore(endOfISOWeek(currentWeekStart), new Date())) {
+      setCurrentWeekStart(addDays(currentWeekStart, 7))
+    }
+  }
+  const chartTitle = `${format(currentWeekStart, 'd MMM', { locale: indonesiaLocale })} - ${format(addDays(currentWeekStart, 6), 'd MMM yyyy', { locale: indonesiaLocale })}`
+  const isNextWeekDisabled = !isBefore(endOfISOWeek(currentWeekStart), new Date())
+
+  // --- Data & Styling Donut Chart ---
+  const DONUT_COLORS = ['#10B981', '#EF4444', '#3B82F6']; // Sesuai, Di Atas, Di Bawah
+  const totalConsistency = consistencyData.reduce((acc, cur) => acc + cur.value, 0)
 
   if (loading) {
     return (
@@ -196,20 +326,39 @@ export default function RiwayatPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <h1 className="text-4xl font-extrabold text-gray-900 mb-2">Riwayat & Analisis</h1>
-          <p className="text-gray-500 font-medium">Lihat tren dan pola konsumsi Anda selama 30 hari terakhir.</p>
+          <p className="text-gray-500 font-medium">Lihat tren dan pola konsumsi Anda.</p>
         </motion.div>
 
         {/* --- Grid Layout --- */}
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* --- FITUR 2: GRAFIK TREN (Kiri Atas) --- */}
+          {/* --- FITUR 2 (MODIFIKASI): GRAFIK TREN MINGGUAN --- */}
           <motion.div 
             initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
             className="lg:col-span-3 bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6"
           >
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-4">
-              <BarChart2 className="text-blue-600" /> Tren Asupan Kalori (7 Hari Terakhir)
-            </h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <BarChart2 className="text-blue-600" /> 
+                Tren Asupan: {chartTitle}
+              </h2>
+              <div className="flex gap-2">
+                <button 
+                  onClick={handlePrevWeek}
+                  className="p-2 bg-white/50 rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 transition"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <button 
+                  onClick={handleNextWeek}
+                  disabled={isNextWeekDisabled}
+                  className="p-2 bg-white/50 rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+            </div>
+            
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={trendData}>
@@ -232,29 +381,65 @@ export default function RiwayatPage() {
             </div>
           </motion.div>
 
-          {/* --- FITUR 1: KALENDER (Kiri Bawah) --- */}
+          {/* --- FITUR 1 (PENGGANTI): KONSISTENSI (Kiri Bawah) --- */}
           <motion.div 
             initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="lg:col-span-2 bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6"
+            className="lg:col-span-2 bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6 flex flex-col md:flex-row items-center gap-6"
           >
-            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-4">
-              <CalendarDays className="text-emerald-600" /> Kalender Konsistensi
-            </h2>
-            <div className="flex justify-center">
-              {/* CSS untuk kustomisasi DayPicker ada di <style> tag di bawah */}
-              <DayPicker
-                mode="single"
-                selected={new Date()}
-                modifiers={calendarModifiers}
-                modifiersStyles={modifierStyles}
-                locale={indonesiaLocale}
-                className="riwayat-calendar"
-              />
+            {/* Bagian Kiri: Donut Chart */}
+            <div className="w-full md:w-1/2 h-64 relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={consistencyData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60} // Ini yang membuatnya jadi Donut
+                    outerRadius={90}
+                    paddingAngle={3}
+                    isAnimationActive={true} // Animasi "fan-out" saat load
+                  >
+                    {consistencyData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                <div className="text-3xl font-extrabold text-gray-800">{totalConsistency}</div>
+                <div className="text-sm text-gray-500">Hari Dicatat</div>
+              </div>
             </div>
-            <div className="mt-4 flex flex-wrap justify-center gap-4 text-xs">
-              <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#10B981]"></div> Sesuai Target</span>
-              <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#EF4444]"></div> Di Atas Target</span>
-              <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#3B82F6]"></div> Di Bawah Target</span>
+            
+            {/* Bagian Kanan: Legenda & Streak */}
+            <div className="w-full md:w-1/2 space-y-4">
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                Konsistensi (30 Hari)
+              </h2>
+              <ul className="space-y-3">
+                {consistencyData.map((entry, index) => (
+                  <li key={entry.name} className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DONUT_COLORS[index] }} />
+                      <span className="text-gray-600">{entry.name}</span>
+                    </div>
+                    <span className="font-bold text-gray-800">{entry.value} Hari</span>
+                  </li>
+                ))}
+              </ul>
+              
+              {/* FITUR BARU: KARTU STREAK */}
+              <div className="mt-6 p-4 bg-white/50 rounded-2xl border border-white/60 flex items-center gap-4">
+                <div className="p-3 bg-gradient-to-br from-emerald-400 to-green-500 rounded-xl text-white shadow-lg">
+                  <TrendingUp size={24} />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-gray-800">{streakData} Hari</div>
+                  <div className="text-sm font-medium text-gray-500">Rentetan Sesuai Target</div>
+                </div>
+              </div>
             </div>
           </motion.div>
 
@@ -275,12 +460,8 @@ export default function RiwayatPage() {
                     <span className="text-lg font-bold text-gray-900">{reportCardData.avgCalories} kkal</span>
                   </div>
                   <div className="flex justify-between items-center p-4 bg-white/50 rounded-xl">
-                    <span className="text-sm font-medium text-gray-600">Tingkat Sukses</span>
+                    <span className="text-sm font-medium text-gray-600">Hari Sukses</span>
                     <span className="text-lg font-bold text-emerald-600">{reportCardData.successDays} / {reportCardData.totalDays} hari</span>
-                  </div>
-                  <div className="flex justify-between items-center p-4 bg-white/50 rounded-xl">
-                    <span className="text-sm font-medium text-gray-600">Hari Terlemah</span>
-                    <span className="text-lg font-bold text-red-600">{reportCardData.weakestDay}</span>
                   </div>
                 </div>
               )}
@@ -299,8 +480,8 @@ export default function RiwayatPage() {
                   <div>
                     <h3 className="font-semibold text-gray-700 mb-2">Paling Sering Dicatat</h3>
                     <ul className="space-y-2">
-                      {habitData.topByFrequency.map((item: any, i: number) => (
-                        <li key={i} className="flex justify-between text-sm p-2 bg-white/40 rounded-lg">
+                      {habitData.topByFrequency.map((item: HabitStats) => (
+                        <li key={item.name} className="flex justify-between text-sm p-2 bg-white/40 rounded-lg">
                           <span className="font-medium text-gray-800">{item.name}</span>
                           <span className="text-gray-500 font-bold">{item.count}x</span>
                         </li>
@@ -310,10 +491,10 @@ export default function RiwayatPage() {
                   <div>
                     <h3 className="font-semibold text-gray-700 mb-2">Kontributor Kalori Terbanyak</h3>
                     <ul className="space-y-2">
-                      {habitData.topByCalories.map((item: any, i: number) => (
-                        <li key={i} className="flex justify-between text-sm p-2 bg-white/40 rounded-lg">
+                      {habitData.topByCalories.map((item: HabitStats) => (
+                        <li key={item.name} className="flex justify-between text-sm p-2 bg-white/40 rounded-lg">
                           <span className="font-medium text-gray-800">{item.name}</span>
-                          <span className="text-red-600 font-bold">{item.calories} kkal</span>
+                          <span className="text-red-600 font-bold">{Math.round(item.totalCalories)} kkal</span>
                         </li>
                       ))}
                     </ul>
@@ -324,26 +505,6 @@ export default function RiwayatPage() {
           </div>
         </div>
       </div>
-
-      {/* Inject CSS untuk kustomisasi react-day-picker */}
-      <style>{`
-        .riwayat-calendar .rdp-day {
-          border-radius: 50%;
-        }
-        .riwayat-calendar .rdp-day:not([disabled]):hover {
-          background-color: #d1fae5;
-        }
-        .riwayat-calendar .rdp-head_cell {
-          font-weight: bold;
-          font-size: 0.8rem;
-          color: #374151;
-        }
-        .riwayat-calendar .rdp-caption_label {
-          font-size: 1.1rem;
-          font-weight: bold;
-          color: #1f2937;
-        }
-      `}</style>
     </div>
   )
 }
