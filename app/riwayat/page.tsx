@@ -112,7 +112,7 @@ export default function RiwayatPage() {
       // 3. Ambil Log 90 Hari Terakhir
       const ninetyDaysAgo = subDays(new Date(), 90).toISOString()
       const { data: rawLogs, error: logsError } = await supabase
-        .from('food_logs') // <- PASTIKAN NAMA TABEL INI BENAR
+        .from('daily_logs') 
         .select('*, foods(*)')
         .eq('user_id', user.id)
         .gte('consumed_at', ninetyDaysAgo)
