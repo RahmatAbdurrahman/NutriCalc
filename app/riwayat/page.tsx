@@ -118,13 +118,22 @@ export default function RiwayatPage() {
 
       // 3. Ambil Log 90 Hari Terakhir (untuk data yang cukup)
       const ninetyDaysAgo = subDays(new Date(), 90).toISOString()
-      const { data: rawLogs } = await supabase
-        .from('food_logs')
+      const { data: rawLogs, error: logsError } = await supabase
+        .from('daily_logs')
         .select('*, foods(*)')
         .eq('user_id', user.id)
         .gte('consumed_at', ninetyDaysAgo)
       
-      if (!rawLogs) { setLoading(false); return }
+      if (logsError) {
+        console.error('Error fetching logs:', logsError)
+        setLoading(false)
+        return
+      }
+      
+      if (!rawLogs || rawLogs.length === 0) { 
+        setLoading(false)
+        return 
+      }
 
       // --- 4. INTI LOGIKA AGREGRASI DATA ---
 
