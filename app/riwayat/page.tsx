@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Canvas } from '@react-three/fiber'
 import { Sphere, MeshDistortMaterial, Float, Stars } from '@react-three/drei'
 import { motion, AnimatePresence } from 'framer-motion'
-// Impor fungsi-fungsi inti (asumsi Anda memilikinya)
+// Impor fungsi-fungsi inti
 import { 
   supabase, 
   calculateAge, 
@@ -14,11 +14,10 @@ import {
   type Profile
 } from '@/lib/supabase'
 import { 
-  LogOut, Activity, BarChart2, Zap, Droplet, Flame, Target, BookOpen, ChevronLeft, ChevronRight, TrendingUp
-} from 'lucide-react'
+  LogOut, Activity, BarChart2, Zap, Droplet, Flame, Target, BookOpen, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, CheckCircle, AlertTriangle, ChevronsDown
+} from 'lucide-react' // Menambahkan ikon baru
 import { 
-  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, 
-  PieChart, Pie, Cell, Sector // Untuk Donut Chart
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend
 } from 'recharts'
 import { 
   format, subDays, addDays, startOfISOWeek, endOfISOWeek, isSameDay, eachDayOfInterval, isBefore 
@@ -34,18 +33,13 @@ type DailyAggregate = {
   totalProtein: number;
   totalCarbs: number;
   totalFat: number;
-  status: 'onTarget' | 'overTarget' | 'underTarget' | 'noData';
+  status: 'onTarget' | 'overTarget' | 'underTarget' | 'noData'; // Logika 3 Kategori
 }
 
 type HabitStats = {
   name: string;
   count: number;
   totalCalories: number;
-}
-
-type ConsistencyData = {
-  name: 'Sesuai Target' | 'Di Atas Target' | 'Di Bawah Target';
-  value: number;
 }
 
 // =====================================================
@@ -91,7 +85,6 @@ export default function RiwayatPage() {
   const [trendData, setTrendData] = useState<any[]>([])
   const [reportCardData, setReportCardData] = useState<any>(null)
   const [habitData, setHabitData] = useState<any>(null)
-  const [consistencyData, setConsistencyData] = useState<ConsistencyData[]>([])
   const [streakData, setStreakData] = useState(0)
 
   // State untuk navigasi chart
@@ -116,10 +109,10 @@ export default function RiwayatPage() {
       setNutritionTarget(target)
       const TDEE = target.tdee
 
-      // 3. Ambil Log 90 Hari Terakhir (untuk data yang cukup)
+      // 3. Ambil Log 90 Hari Terakhir
       const ninetyDaysAgo = subDays(new Date(), 90).toISOString()
       const { data: rawLogs, error: logsError } = await supabase
-        .from('daily_logs')
+        .from('food_logs') // <- PASTIKAN NAMA TABEL INI BENAR
         .select('*, foods(*)')
         .eq('user_id', user.id)
         .gte('consumed_at', ninetyDaysAgo)
@@ -142,6 +135,8 @@ export default function RiwayatPage() {
       const habitAggregates = new Map<string, HabitStats>()
 
       for (const log of rawLogs) {
+        if (!log.foods) continue; 
+        
         const dateKey = format(new Date(log.consumed_at), 'yyyy-MM-dd')
         const logCalories = (log.foods.energy_kcal / 100) * log.quantity_grams
         const logProtein = (log.foods.protein_g / 100) * log.quantity_grams
@@ -168,33 +163,42 @@ export default function RiwayatPage() {
       const finalDailyData = new Map<string, DailyAggregate>()
       const thirtyDaysInterval = eachDayOfInterval({ start: subDays(new Date(), 29), end: new Date() })
       
+      // LOGIKA KONSISTENSI BARU: 3 Kategori (FIXED)
       let consistencyCounts = { onTarget: 0, overTarget: 0, underTarget: 0 }
       let currentStreak = 0
       let lastDayWasOnTarget = false
+      
       let totalCaloriesLast30Days = 0
+      let totalProteinLast30Days = 0
+      let totalCarbsLast30Days = 0
+      let totalFatLast30Days = 0
 
-      // Urutkan interval agar bisa hitung streak
       const sortedInterval = thirtyDaysInterval.sort((a, b) => a.getTime() - b.getTime())
+      let loggedDays = 0
 
       for (const day of sortedInterval) {
         const dateKey = format(day, 'yyyy-MM-dd')
         const data = dailyAggregates.get(dateKey)
         let status: DailyAggregate['status'] = 'noData'
-        let totalCalories = 0
         
-        if (data) {
-          totalCalories = data.totalCalories
+        if (data && data.totalCalories > 0) {
+          loggedDays++
+          let totalCalories = data.totalCalories
           totalCaloriesLast30Days += totalCalories
-          // Tentukan status (misal, 10% toleransi)
-          if (totalCalories > TDEE * 1.1) {
+          totalProteinLast30Days += data.totalProtein
+          totalCarbsLast30Days += data.totalCarbs
+          totalFatLast30Days += data.totalFat
+          
+          // LOGIKA STATUS 3 KATEGORI (FIXED)
+          if (totalCalories > TDEE * 1.1) { // Di atas 110%
             status = 'overTarget'
             consistencyCounts.overTarget++
             lastDayWasOnTarget = false
-          } else if (totalCalories < TDEE * 0.9) {
+          } else if (totalCalories < TDEE * 0.9) { // Di bawah 90%
             status = 'underTarget'
             consistencyCounts.underTarget++
             lastDayWasOnTarget = false
-          } else {
+          } else { // Di antara 90% - 110%
             status = 'onTarget'
             consistencyCounts.onTarget++
             currentStreak = lastDayWasOnTarget || currentStreak === 0 ? currentStreak + 1 : 1
@@ -215,23 +219,21 @@ export default function RiwayatPage() {
       }
 
       // C. Set State untuk Visualisasi
-      setAllDailyData(finalDailyData) // Data mentah untuk chart
-
-      // Fitur Donut Chart
-      setConsistencyData([
-        { name: 'Sesuai Target', value: consistencyCounts.onTarget },
-        { name: 'Di Atas Target', value: consistencyCounts.overTarget },
-        { name: 'Di Bawah Target', value: consistencyCounts.underTarget },
-      ])
+      setAllDailyData(finalDailyData) 
 
       // Fitur Streak
       setStreakData(currentStreak)
 
-      // Fitur Report Card
-      const loggedDays = consistencyCounts.onTarget + consistencyCounts.overTarget + consistencyCounts.underTarget
+      // Fitur Report Card (Diperluas)
       setReportCardData({
         avgCalories: loggedDays > 0 ? Math.round(totalCaloriesLast30Days / loggedDays) : 0,
-        successDays: consistencyCounts.onTarget,
+        avgProtein: loggedDays > 0 ? Math.round(totalProteinLast30Days / loggedDays) : 0,
+        avgCarbs: loggedDays > 0 ? Math.round(totalCarbsLast30Days / loggedDays) : 0,
+        avgFat: loggedDays > 0 ? Math.round(totalFatLast30Days / loggedDays) : 0,
+        // Kirim semua 3 kategori
+        onTargetDays: consistencyCounts.onTarget,
+        overTargetDays: consistencyCounts.overTarget,
+        underTargetDays: consistencyCounts.underTarget,
         totalDays: 30
       })
 
@@ -246,11 +248,11 @@ export default function RiwayatPage() {
     }
 
     processAllData()
-  }, [router]) // Hanya run sekali saat load
+  }, [router]) 
 
   // --- Efek Kedua: Update Chart saat navigasi minggu ---
   useEffect(() => {
-    if (allDailyData.size === 0) return // Jangan run jika data belum siap
+    if (allDailyData.size === 0 || !nutritionTarget) return 
 
     const weekInterval = eachDayOfInterval({ start: currentWeekStart, end: addDays(currentWeekStart, 6) })
     
@@ -258,7 +260,7 @@ export default function RiwayatPage() {
       const dateKey = format(day, 'yyyy-MM-dd')
       const data = allDailyData.get(dateKey)
       return {
-        name: format(day, 'E', { locale: indonesiaLocale }), // Sen, Sel, Rab...
+        name: format(day, 'E', { locale: indonesiaLocale }), 
         kalori: data ? Math.round(data.totalCalories) : 0,
         target: nutritionTarget.tdee
       }
@@ -276,17 +278,12 @@ export default function RiwayatPage() {
     setCurrentWeekStart(subDays(currentWeekStart, 7))
   }
   const handleNextWeek = () => {
-    // Jangan biarkan navigasi ke masa depan
     if (isBefore(endOfISOWeek(currentWeekStart), new Date())) {
       setCurrentWeekStart(addDays(currentWeekStart, 7))
     }
   }
   const chartTitle = `${format(currentWeekStart, 'd MMM', { locale: indonesiaLocale })} - ${format(addDays(currentWeekStart, 6), 'd MMM yyyy', { locale: indonesiaLocale })}`
   const isNextWeekDisabled = !isBefore(endOfISOWeek(currentWeekStart), new Date())
-
-  // --- Data & Styling Donut Chart ---
-  const DONUT_COLORS = ['#10B981', '#EF4444', '#3B82F6']; // Sesuai, Di Atas, Di Bawah
-  const totalConsistency = consistencyData.reduce((acc, cur) => acc + cur.value, 0)
 
   if (loading) {
     return (
@@ -341,7 +338,7 @@ export default function RiwayatPage() {
         {/* --- Grid Layout --- */}
         <div className="mt-10 grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* --- FITUR 2 (MODIFIKASI): GRAFIK TREN MINGGUAN --- */}
+          {/* --- GRAFIK TREN MINGGUAN --- */}
           <motion.div 
             initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
             className="lg:col-span-3 bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6"
@@ -390,128 +387,113 @@ export default function RiwayatPage() {
             </div>
           </motion.div>
 
-          {/* --- FITUR 1 (PENGGANTI): KONSISTENSI (Kiri Bawah) --- */}
+          {/* --- FITUR 3 (PENGGANTI): REPORT CARD (Diperluas) --- */}
           <motion.div 
-            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-            className="lg:col-span-2 bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6 flex flex-col md:flex-row items-center gap-6"
+            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+            className="lg:col-span-2 bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6"
           >
-            {/* Bagian Kiri: Donut Chart */}
-            <div className="w-full md:w-1/2 h-64 relative">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={consistencyData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60} // Ini yang membuatnya jadi Donut
-                    outerRadius={90}
-                    paddingAngle={3}
-                    isAnimationActive={true} // Animasi "fan-out" saat load
-                  >
-                    {consistencyData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={DONUT_COLORS[index % DONUT_COLORS.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                <div className="text-3xl font-extrabold text-gray-800">{totalConsistency}</div>
-                <div className="text-sm text-gray-500">Hari Dicatat</div>
-              </div>
-            </div>
-            
-            {/* Bagian Kanan: Legenda & Streak */}
-            <div className="w-full md:w-1/2 space-y-4">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
-                Konsistensi (30 Hari)
-              </h2>
-              <ul className="space-y-3">
-                {consistencyData.map((entry, index) => (
-                  <li key={entry.name} className="flex justify-between items-center text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: DONUT_COLORS[index] }} />
-                      <span className="text-gray-600">{entry.name}</span>
-                    </div>
-                    <span className="font-bold text-gray-800">{entry.value} Hari</span>
-                  </li>
-                ))}
-              </ul>
-              
-              {/* FITUR BARU: KARTU STREAK */}
-              <div className="mt-6 p-4 bg-white/50 rounded-2xl border border-white/60 flex items-center gap-4">
-                <div className="p-3 bg-gradient-to-br from-emerald-400 to-green-500 rounded-xl text-white shadow-lg">
-                  <TrendingUp size={24} />
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-gray-800">{streakData} Hari</div>
-                  <div className="text-sm font-medium text-gray-500">Rentetan Sesuai Target</div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* --- SISI KANAN (FITUR 3 & 4) --- */}
-          <div className="lg:col-span-1 space-y-8">
-            {/* --- FITUR 3: REPORT CARD --- */}
-            <motion.div 
-              initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-              className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6"
-            >
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-4">
-                <Target className="text-red-600" /> Rapor 30 Hari
-              </h2>
-              {reportCardData && (
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-4">
+              <Target className="text-red-600" /> Rapor 30 Hari
+            </h2>
+            {reportCardData ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Kolom 1: Rata-rata Makro */}
                 <div className="space-y-4">
+                  <h3 className="font-semibold text-gray-700">Rata-rata Asupan Harian</h3>
                   <div className="flex justify-between items-center p-4 bg-white/50 rounded-xl">
-                    <span className="text-sm font-medium text-gray-600">Rata-rata Kalori</span>
+                    <span className="text-sm font-medium text-gray-600 flex items-center gap-2"><Flame size={16} className="text-orange-500" /> Kalori</span>
                     <span className="text-lg font-bold text-gray-900">{reportCardData.avgCalories} kkal</span>
                   </div>
                   <div className="flex justify-between items-center p-4 bg-white/50 rounded-xl">
-                    <span className="text-sm font-medium text-gray-600">Hari Sukses</span>
-                    <span className="text-lg font-bold text-emerald-600">{reportCardData.successDays} / {reportCardData.totalDays} hari</span>
+                    <span className="text-sm font-medium text-gray-600 flex items-center gap-2"><Zap size={16} className="text-blue-500" /> Protein</span>
+                    <span className="text-lg font-bold text-gray-900">{reportCardData.avgProtein} g</span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-white/50 rounded-xl">
+                    <span className="text-sm font-medium text-gray-600 flex items-center gap-2"><Activity size={16} className="text-amber-500" /> Karbo</span>
+                    <span className="text-lg font-bold text-gray-900">{reportCardData.avgCarbs} g</span>
+                  </div>
+                  <div className="flex justify-between items-center p-4 bg-white/50 rounded-xl">
+                    <span className="text-sm font-medium text-gray-600 flex items-center gap-2"><Droplet size={16} className="text-purple-500" /> Lemak</span>
+                    <span className="text-lg font-bold text-gray-900">{reportCardData.avgFat} g</span>
                   </div>
                 </div>
-              )}
-            </motion.div>
 
-            {/* --- FITUR 4: POLA MAKAN --- */}
-            <motion.div 
-              initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-              className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6"
-            >
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-4">
-                <BookOpen className="text-purple-600" /> Pola Makan
-              </h2>
-              {habitData && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="font-semibold text-gray-700 mb-2">Paling Sering Dicatat</h3>
-                    <ul className="space-y-2">
-                      {habitData.topByFrequency.map((item: HabitStats) => (
-                        <li key={item.name} className="flex justify-between text-sm p-2 bg-white/40 rounded-lg">
-                          <span className="font-medium text-gray-800">{item.name}</span>
-                          <span className="text-gray-500 font-bold">{item.count}x</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-700 mb-2">Kontributor Kalori Terbanyak</h3>
-                    <ul className="space-y-2">
-                      {habitData.topByCalories.map((item: HabitStats) => (
-                        <li key={item.name} className="flex justify-between text-sm p-2 bg-white/40 rounded-lg">
-                          <span className="font-medium text-gray-800">{item.name}</span>
-                          <span className="text-red-600 font-bold">{Math.round(item.totalCalories)} kkal</span>
-                        </li>
-                      ))}
-                    </ul>
+                {/* Kolom 2: Konsistensi (FIXED) & Streak */}
+                <div className="space-y-4">
+                   <h3 className="font-semibold text-gray-700">Konsistensi</h3>
+                   
+                   {/* LOGIKA 3 KATEGORI DITAMPILKAN DI SINI */}
+                   <div className="flex justify-between items-center p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                    <span className="text-sm font-medium text-emerald-800 flex items-center gap-2"><CheckCircle size={16} /> Sesuai Target</span>
+                    <span className="text-lg font-bold text-emerald-600">{reportCardData.onTargetDays} hari</span>
+                   </div>
+                   <div className="flex justify-between items-center p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                    <span className="text-sm font-medium text-yellow-800 flex items-center gap-2"><AlertTriangle size={16} /> Di Atas Target</span>
+                    <span className="text-lg font-bold text-yellow-600">{reportCardData.overTargetDays} hari</span>
+                   </div>
+                   <div className="flex justify-between items-center p-4 bg-blue-50 rounded-xl border border-blue-200">
+                    <span className="text-sm font-medium text-blue-800 flex items-center gap-2"><ChevronsDown size={16} /> Di Bawah Target</span>
+                    <span className="text-lg font-bold text-blue-600">{reportCardData.underTargetDays} hari</span>
+                   </div>
+                  
+                  {/* FITUR STREAK */}
+                  <div className="mt-4 pt-4 border-t border-gray-200/50">
+                    <div className="p-4 bg-white/50 rounded-2xl border border-white/60 flex items-center gap-4">
+                      <div className="p-3 bg-gradient-to-br from-emerald-400 to-green-500 rounded-xl text-white shadow-lg">
+                        <TrendingUp size={24} />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold text-gray-800">{streakData} Hari</div>
+                        <div className="text-sm font-medium text-gray-500">Rentetan Sesuai Target</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              )}
-            </motion.div>
-          </div>
+
+              </div>
+            ) : (
+              <p className="text-gray-500">Data tidak cukup untuk menampilkan rapor.</p>
+            )}
+          </motion.div>
+
+          {/* --- FITUR 4: POLA MAKAN --- */}
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+            className="lg:col-span-1 bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6"
+          >
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-4">
+              <BookOpen className="text-purple-600" /> Pola Makan
+            </h2>
+            {habitData && habitData.topByFrequency.length > 0 ? (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-semibold text-gray-700 mb-2">Paling Sering Dicatat</h3>
+                  <ul className="space-y-2">
+                    {habitData.topByFrequency.map((item: HabitStats) => (
+                      <li key={item.name} className="flex justify-between text-sm p-2 bg-white/40 rounded-lg">
+                        <span className="font-medium text-gray-800">{item.name}</span>
+                        <span className="text-gray-500 font-bold">{item.count}x</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-700 mb-2">Kontributor Kalori Terbanyak</h3>
+                  <ul className="space-y-2">
+                    {habitData.topByCalories.map((item: HabitStats) => (
+                      <li key={item.name} className="flex justify-between text-sm p-2 bg-white/40 rounded-lg">
+                        <span className="font-medium text-gray-800">{item.name}</span>
+                        <span className="text-red-600 font-bold">{Math.round(item.totalCalories)} kkal</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : (
+               <p className="text-gray-500">Belum ada pola makan yang terdeteksi.</p>
+            )}
+          </motion.div>
         </div>
       </div>
     </div>
