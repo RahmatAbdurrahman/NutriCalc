@@ -6,11 +6,10 @@ import { Canvas } from '@react-three/fiber'
 import { Sphere, MeshDistortMaterial, Float, Stars } from '@react-three/drei'
 import { motion } from 'framer-motion'
 import { supabase, type Food } from '@/lib/supabase'
-import { LogOut, Database, Search, Filter, Flame, Zap, Droplet, Activity } from 'lucide-react'
+import { 
+  LogOut, Database, Search, Flame, Zap, Droplet, Activity, Download, Loader2, ExternalLink 
+} from 'lucide-react'
 
-// =====================================================
-// 1. REUSABLE 3D BACKGROUND
-// =====================================================
 function AnimatedBackground() {
   return (
     <div className="fixed inset-0 -z-10 h-full w-full bg-linear-to-br from-emerald-50 via-teal-50 to-cyan-50">
@@ -37,73 +36,73 @@ function AnimatedBackground() {
   )
 }
 
-// =====================================================
-// 2. MAIN DATABASE PANGAN PAGE (FIXED)
-// =====================================================
+
 export default function DatabasePanganPage() {
   const router = useRouter()
-  // HANYA 'filteredFoods' yang diperlukan. State 'foods' (data lengkap) dihapus.
   const [filteredFoods, setFilteredFoods] = useState<Food[]>([])
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('Semua')
   const [loading, setLoading] = useState(true)
+  const [isDownloading, setIsDownloading] = useState(false) 
 
-  // PENTING: Pastikan kategori ini SESUAI dengan data CSV Anda.
-  // Ini adalah satu-satunya bagian yang masih hardcoded.
-  const categories = [
-    'Semua', 'Karbohidrat', 'Protein Hewani', 'Protein Nabati', 
-    'Sayuran', 'Buah', 'Susu', 'Minuman', 
-    'Lemak & Minyak', 'Daging Olahan' // (Tambahkan/sesuaikan)
-  ]
-
-  // --- INI ADALAH PERBAIKAN PERFORMA UTAMA ---
-  // Kita hanya punya SATU useEffect yang bereaksi terhadap filter.
-  // Data tidak diambil semua sekaligus, tapi difilter di database.
   useEffect(() => {
     const fetchFilteredFoods = async () => {
       setLoading(true)
-
-      // Memulai kueri Supabase
       let query = supabase.from('foods').select('*')
-
-      // 1. Filter Kategori (di sisi database)
-      if (selectedCategory !== 'Semua') {
-        query = query.eq('food_category', selectedCategory)
-      }
-
-      // 2. Filter Pencarian (di sisi database)
       if (searchQuery.length > 2) {
         query = query.ilike('food_name', `%${searchQuery}%`)
       }
-
-      // 3. Batasi Hasil (Paginasi) - Sangat Penting!
-      query = query.limit(50).order('food_name', { ascending: true })
-
-      // Eksekusi kueri
+      query = query.limit(30).order('food_name', { ascending: true })
       const { data: foodsData, error } = await query
-
       if (error) {
         console.error('Error fetching foods:', error)
       }
-      
       setFilteredFoods(foodsData || [])
       setLoading(false)
     }
-
-    // Gunakan debounce untuk pencarian agar tidak memanggil API di setiap ketukan
     const handler = setTimeout(() => {
       fetchFilteredFoods()
-    }, 300) // Tunda 300ms setelah user berhenti mengetik
-
+    }, 300) 
     return () => {
-      clearTimeout(handler) // Bersihkan timer
+      clearTimeout(handler)
     }
-  }, [searchQuery, selectedCategory, router]) // Dijalankan ulang setiap filter berubah
+  }, [searchQuery, router]) 
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/')
   }
+
+  const handleDownloadCSV = async () => {
+    setIsDownloading(true)
+    try {
+      const { data: allFoods, error } = await supabase
+        .from('foods')
+        .select('food_name, energy_kcal, protein_g, carbs_g, fat_g') 
+        .order('food_name', { ascending: true })
+      if (error) throw error
+      if (!allFoods || allFoods.length === 0) {
+        setIsDownloading(false)
+        return
+      }
+      const headers = "food_name,energy_kcal,protein_g,carbs_g,fat_g";
+      const rows = allFoods.map(food => 
+        `${food.food_name.replace(/,/g, '')},${food.energy_kcal},${food.protein_g},${food.carbs_g},${food.fat_g}`
+      );
+      const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + rows.join("\n");
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "database_pangan_nutricalc.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      console.error('Error downloading CSV:', err.message);
+      alert('Gagal mengunduh CSV: ' + err.message);
+    } finally {
+      setIsDownloading(false)
+    }
+  };
 
   return (
     <div className="relative min-h-screen text-gray-800 font-sans overflow-x-hidden">
@@ -140,25 +139,68 @@ export default function DatabasePanganPage() {
       {/* --- MAIN CONTENT --- */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         
-        {/* Header */}
+        {/* 2. HEADER DIPERBARUI DENGAN TOMBOL BARU */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-          <div className="inline-block p-4 bg-white/50 backdrop-blur-lg rounded-2xl mb-4 border border-white/60">
-            <Database className="w-8 h-8 text-emerald-600" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            {/* Kiri: Judul */}
+            <div>
+              <div className="inline-block p-4 bg-white/50 backdrop-blur-lg rounded-2xl mb-4 border border-white/60">
+                <Database className="w-8 h-8 text-emerald-600" />
+              </div>
+              <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
+                Database Pangan TKPI
+              </h1>
+              <p className="text-gray-500 font-medium">
+                Tabel Komposisi Pangan Indonesia. (Menampilkan 30 hasil teratas)
+              </p>
+            </div>
+            
+            {/* Kanan: Grup Tombol Aksi */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {/* Tombol 1: Download CSV */}
+              <motion.button
+                onClick={handleDownloadCSV}
+                disabled={isDownloading}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex-shrink-0 px-6 py-3 bg-white/80 backdrop-blur-md border border-white/60 rounded-xl font-bold text-gray-800 shadow-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Memproses...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-5 h-5" />
+                    Download CSV
+                  </>
+                )}
+              </motion.button>
+
+              {/* Tombol 2: Kunjungi Penyedia (BARU) */}
+              <motion.a
+                href="http://www.panganku.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="flex-shrink-0 px-6 py-3 bg-gray-900 text-white rounded-xl font-bold shadow-lg hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="w-5 h-5" />
+                Kunjungi Panganku.org
+              </motion.a>
+            </div>
+
           </div>
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
-            Database Pangan TKPI
-          </h1>
-          <p className="text-gray-500 font-medium">
-            Tabel Komposisi Pangan Indonesia. (Menampilkan 50 hasil teratas)
-          </p>
         </motion.div>
 
-        {/* Kontainer Filter & Hasil (UI "Grown Up") */}
+        {/* Kontainer Filter & Hasil */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="bg-white/60 backdrop-blur-xl border border-white/50 rounded-4xl shadow-xl p-6"
         >
-          {/* Search & Filter */}
+          {/* Search */}
           <div className="mb-6 space-y-4">
             <div className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -170,27 +212,9 @@ export default function DatabasePanganPage() {
                 placeholder="Cari makanan (min. 3 huruf)..."
               />
             </div>
-            
-            {/* Filter Kategori (Glass Style) */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
-              <Filter className="w-5 h-5 text-gray-600 flex-shrink-0" />
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-4 py-2 rounded-full font-medium whitespace-nowrap transition-all border ${
-                    selectedCategory === category
-                      ? 'bg-gray-900 text-white border-gray-900 shadow-lg'
-                      : 'bg-white/40 text-gray-700 border-white/60 hover:bg-white/80'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
-            </div>
           </div>
 
-          {/* --- PENGGANTI TABEL: GRID KARTU KACA --- */}
+          {/* --- Grid Kartu Kaca --- */}
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
@@ -199,7 +223,7 @@ export default function DatabasePanganPage() {
             <div className="text-center py-12 text-gray-600">
               <Search size={40} className="mx-auto mb-4 text-gray-400" />
               <h3 className="text-xl font-bold">Tidak Ada Makanan Ditemukan</h3>
-              <p>Coba ubah kata kunci atau filter kategori Anda.</p>
+              <p>Coba ubah kata kunci pencarian Anda.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -211,17 +235,12 @@ export default function DatabasePanganPage() {
                   transition={{ delay: index * 0.05 }}
                   className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-3xl p-5 flex flex-col justify-between shadow-lg"
                 >
-                  {/* Bagian Atas: Nama & Kategori */}
                   <div>
-                    <span className="inline-block px-3 py-1 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium mb-3">
-                      {food.food_category}
-                    </span>
                     <h3 className="text-xl font-bold text-gray-900 mb-4">
                       {food.food_name}
                     </h3>
                   </div>
                   
-                  {/* Bagian Bawah: Makro per 100g */}
                   <div className="border-t border-white/80 pt-4">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-medium text-gray-600 flex items-center gap-1.5"><Flame size={14} className="text-orange-500" /> Energi</span>
