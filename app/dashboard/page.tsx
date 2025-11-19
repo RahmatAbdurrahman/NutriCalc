@@ -21,7 +21,6 @@ import {
   Heart, LogOut, Plus, Search, X, Target, Activity, Edit, Save, Ruler, Weight, ChevronRight, Flame, Zap, Droplet
 } from 'lucide-react'
 
-// 1. REUSABLE 3D BACKGROUND
 function AnimatedBackground() {
   return (
     <div className="fixed inset-0 -z-10 h-full w-full bg-linear-to-br from-emerald-50 via-teal-50 to-cyan-50">
@@ -48,7 +47,6 @@ function AnimatedBackground() {
   )
 }
 
-// 2. MAIN DASHBOARD COMPONENT
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -75,7 +73,7 @@ export default function DashboardPage() {
   const [addingFood, setAddingFood] = useState(false)
   const [updating, setUpdating] = useState(false)
 
-  // --- LOGIC: KEEP EXISTING LOGIC INTACT ---
+  // --- LOGIC: LOAD DATA ---
   useEffect(() => {
     const loadData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -152,6 +150,7 @@ export default function DashboardPage() {
     setSelectedFood(food)
     const urts = await getFoodURTs(food.food_id)
     setFoodURTs(urts)
+    // Set default URT (biasanya 'gram' atau yang pertama)
     if (urts.length > 0) { setSelectedURT(urts[0]) }
   }
 
@@ -160,7 +159,13 @@ export default function DashboardPage() {
     setAddingFood(true)
     try {
       const totalGrams = selectedURT.equivalent_grams * quantity
-      await addFoodLog({ user_id: user.id, food_id: selectedFood.food_id, quantity_grams: totalGrams, meal_type: mealType, consumed_at: new Date().toISOString() })
+      await addFoodLog({ 
+        user_id: user.id, 
+        food_id: selectedFood.food_id, 
+        quantity_grams: totalGrams, 
+        meal_type: mealType, 
+        consumed_at: new Date().toISOString() 
+      })
       await loadTodayLogs(user.id)
       setShowAddFoodModal(false); setSearchQuery(''); setSearchResults([]); setSelectedFood(null); setSelectedURT(null); setQuantity(1)
     } catch (error) { console.error('Error:', error) } finally { setAddingFood(false) }
@@ -189,7 +194,7 @@ export default function DashboardPage() {
     <div className="relative min-h-screen text-gray-800 font-sans overflow-x-hidden">
       <AnimatedBackground />
 
-      {/* --- GLASS NAVBAR (FIXED) --- */}
+      {/* --- GLASS NAVBAR --- */}
       <motion.nav 
         initial={{ y: -100 }} animate={{ y: 0 }}
         className="sticky top-0 z-40 bg-white/40 backdrop-blur-xl border-b border-white/50 shadow-sm"
@@ -197,7 +202,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center gap-3">
-              <motion.img src="/logo.png" alt="Logo" whileHover={{ rotate: 10, scale: 1.1 }} className="w-10 h-10 mb-1.5 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
+              <motion.img src="/logo.png" alt="Logo" whileHover={{ rotate: 10, scale: 1.1 }} className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
               <span className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-gray-800 to-emerald-800">
                 NutriCalc<span className="text-emerald-500">+</span>
               </span>
@@ -226,7 +231,8 @@ export default function DashboardPage() {
           className="mb-10 flex justify-between items-end"
         >
           <div>
-            <h1 className="text-4xl font-extrabold text-gray-900 mb-2">              Halo, <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-500 to-teal-500">{user?.email?.split('@')[0]}</span> 👋
+            <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
+              Halo, <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-500 to-teal-500">{user?.email?.split('@')[0]}</span> 👋
             </h1>
             <p className="text-gray-500 font-medium">Ayo capai target nutrisi hari ini!</p>
           </div>
@@ -275,7 +281,6 @@ export default function DashboardPage() {
                           <span>{todayTotal.protein} / {nutritionTarget.protein_g}g</span>
                        </div>
                        <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
-                         {/* Tailwind FIX: bg-gradient-to-r -> bg-linear-to-r */}
                          <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(proteinProgress, 100)}%` }} className="h-full bg-linear-to-r from-blue-400 to-blue-600" />
                        </div>
                      </div>
@@ -296,7 +301,6 @@ export default function DashboardPage() {
                           <span>{todayTotal.fat} / {nutritionTarget.fat_g}g</span>
                        </div>
                        <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
-                         {/* Tailwind FIX: bg-gradient-to-r -> bg-linear-to-r */}
                          <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(fatProgress, 100)}%` }} className="h-full bg-linear-to-r from-purple-400 to-purple-600" />
                        </div>
                      </div>
@@ -402,6 +406,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ================= MODALS ================= */}
       <AnimatePresence>
         {showUpdateDataModal && (
           <motion.div 
@@ -453,10 +458,10 @@ export default function DashboardPage() {
                initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
                className="bg-white/95 backdrop-blur-xl rounded-4xl w-full max-w-2xl max-h-[85vh] flex flex-col border border-white/50 shadow-2xl overflow-hidden"
             >
-               {/* Header */}
+               {/* Header Modal */}
                <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white/50">
                   <h2 className="text-2xl font-bold text-gray-800">Tambah Asupan</h2>
-                  <button onClick={() => {setShowAddFoodModal(false); setSelectedFood(null); setSearchQuery('')}} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200"><X size={20}/></button>
+                  <button onClick={() => {setShowAddFoodModal(false); setSelectedFood(null); setSearchQuery(''); setSearchResults([])}} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"><X size={20}/></button>
                </div>
                
                <div className="p-6 overflow-y-auto custom-scrollbar">
@@ -464,10 +469,19 @@ export default function DashboardPage() {
                     <div className="space-y-4">
                        <div className="relative">
                           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                          <input type="text" value={searchQuery} onChange={e => handleSearch(e.target.value)} autoFocus
-                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none text-lg" placeholder="Cari nasi goreng, dada ayam..." />
+                          <input 
+                            type="text" 
+                            value={searchQuery} 
+                            onChange={e => handleSearch(e.target.value)} 
+                            autoFocus
+                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 outline-none text-lg" 
+                            placeholder="Cari nasi goreng, dada ayam..." 
+                          />
                        </div>
                        <div className="space-y-2">
+                          {searchResults.length === 0 && searchQuery.length > 2 && (
+                             <p className="text-center text-gray-500 py-4">Tidak ada makanan ditemukan.</p>
+                          )}
                           {searchResults.map(food => (
                              <motion.button whileHover={{ scale: 1.01, x: 5 }} key={food.food_id} onClick={() => handleSelectFood(food)}
                                className="w-full p-4 flex justify-between items-center bg-white border border-gray-100 rounded-xl hover:border-emerald-300 hover:bg-emerald-50 transition text-left shadow-sm">
@@ -475,81 +489,113 @@ export default function DashboardPage() {
                                    <div className="font-bold text-gray-800">{food.food_name}</div>
                                    <div className="text-xs text-gray-500 mt-1">{food.energy_kcal} kkal / 100g</div>
                                 </div>
-                                <div className="p-2 bg-white rounded-lg text-emerald-600"><ChevronRight size={18}/></div>
+                                <div className="p-2 bg-gray-50 rounded-lg text-emerald-600"><ChevronRight size={18}/></div>
                              </motion.button>
                           ))}
                        </div>
                     </div>
                   ) : (
                     <div className="space-y-6">
+                       {/* Detail Makanan Terpilih */}
                        <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex justify-between items-center">
                           <div>
                              <h3 className="font-bold text-xl text-gray-900">{selectedFood.food_name}</h3>
                              <p className="text-sm text-emerald-700 font-medium">{selectedFood.energy_kcal} kkal (per 100g)</p>
                           </div>
-                          <button onClick={() => setSelectedFood(null)} className="text-sm text-emerald-600 hover:underline">Ubah</button>
+                          <button onClick={() => setSelectedFood(null)} className="text-sm font-bold text-emerald-600 hover:underline">Ubah</button>
                        </div>
                        
-                       {/* Meal Type Selector */}
+                       {/* Waktu Makan */}
                        <div>
-                         <label className="text-sm font-bold text-gray-600 mb-2 block">Waktu Makan</label>
+                         <label className="text-sm font-bold text-gray-600 mb-2 block ml-1">Waktu Makan</label>
                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            {/* TypeScript Kritis FIX Line 504: v. -> v: */}
-                            {[{v:'sarapan',l:'🌅 Pagi'},{v:'makan_siang',l:'☀️ Siang'},{v:'makan_malam',l:'🌙 Malam'},{v:'snack',l:'🍎 Snack'}].map(m => (
-                               <button key={m.v} onClick={() => setMealType(m.v as any)} 
-                                 className={`py-3 rounded-xl text-sm font-bold transition border ${mealType===m.v ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg transform scale-105' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                            {[
+                              {v:'sarapan', l:'🌅 Pagi'},
+                              {v:'makan_siang', l:'☀️ Siang'},
+                              {v:'makan_malam', l:'🌙 Malam'},
+                              {v:'snack', l:'🍎 Snack'}
+                            ].map(m => (
+                               <button 
+                                 key={m.v} 
+                                 onClick={() => setMealType(m.v as any)} 
+                                 className={`py-3 rounded-xl text-sm font-bold transition border ${
+                                   mealType === m.v 
+                                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-lg transform scale-105' 
+                                   : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                                 }`}
+                               >
                                  {m.l}
                                </button>
                             ))}
                          </div>
                        </div>
 
-                       {/* Quantity & URT */}
+                       {/* Satuan & Jumlah */}
                        <div className="grid grid-cols-2 gap-4">
                           <div>
-                             <label className="text-sm font-bold text-gray-600 mb-2 block">Satuan</label>
-                             <select onChange={e => setSelectedURT(foodURTs.find(u => u.urt_id === e.target.value) || null)} 
-                               className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-emerald-500">
-                                {/* TypeScript Kritis FIX Line 519: u.urt_d -> u.urt_id */}
-                                {foodURTs.map(u => <option key={u.urt_id} value={u.urt_id}>{u.urt_name} ({u.equivalent_grams}g)</option>)}
+                             <label className="text-sm font-bold text-gray-600 mb-2 block ml-1">Satuan</label>
+                             <select 
+                               onChange={e => {
+                                 const selected = foodURTs.find(u => u.urt_id === e.target.value);
+                                 setSelectedURT(selected || null);
+                               }} 
+                               className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
+                             >
+                                {foodURTs.map(u => (
+                                  <option key={u.urt_id} value={u.urt_id}>
+                                    {u.urt_name} ({u.equivalent_grams}g)
+                                  </option>
+                                ))}
                              </select>
                           </div>
                           <div>
-                             <label className="text-sm font-bold text-gray-600 mb-2 block">Jumlah</label>
-                             <input type="number" step="0.5" min="0.5" value={quantity} onChange={e => setQuantity(parseFloat(e.target.value))}
-                               className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-emerald-500" />
+                             <label className="text-sm font-bold text-gray-600 mb-2 block ml-1">Jumlah</label>
+                             <input 
+                               type="number" 
+                               step="0.5" 
+                               min="0.1" 
+                               value={quantity} 
+                               onChange={e => setQuantity(parseFloat(e.target.value))}
+                               className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 font-bold text-gray-800" 
+                             />
                           </div>
                        </div>
                        
                        {/* Summary Card */}
                        {selectedURT && (
-                          <div className="p-5 bg-gray-900 text-white rounded-2xl shadow-xl flex justify-between items-center">
+                          <div className="p-5 bg-gray-900 text-white rounded-2xl shadow-xl flex justify-between items-center mt-4">
                              <div>
-                                <div className="text-gray-400 text-sm font-medium">Total Asupan</div>
-                                <div className="text-2xl font-bold">{Math.round((selectedURT.equivalent_grams * quantity / 100) * selectedFood.energy_kcal)} kkal</div>
+                                <div className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Total Asupan</div>
+                                <div className="text-3xl font-bold text-white">
+                                  {Math.round((selectedURT.equivalent_grams * quantity / 100) * selectedFood.energy_kcal)} 
+                                  <span className="text-base font-normal text-gray-400 ml-1">kkal</span>
+                                </div>
                              </div>
                              <div className="text-right">
-                                <div className="text-sm font-bold text-emerald-400">{selectedURT.equivalent_grams * quantity} gram</div>
+                                <div className="bg-gray-800 px-3 py-1 rounded-lg">
+                                  <span className="text-sm font-bold text-emerald-400">
+                                    {Math.round(selectedURT.equivalent_grams * quantity)} gram
+                                  </span>
+                                </div>
                              </div>
                           </div>
                        )}
 
-                       {/* Tombol Kembali dan Simpan */}
-                       <div className="flex gap-4">
+                       {/* Tombol Aksi */}
+                       <div className="flex gap-3 pt-2">
                           <button
                             type="button"
                             onClick={() => setSelectedFood(null)}
-                            className="flex-1 py-3 bg-white/80 border border-gray-300 rounded-xl hover:bg-gray-50 transition text-gray-700 font-bold"
+                            className="flex-1 py-3.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition text-gray-600 font-bold"
                           >
                             Kembali
                           </button>
-                          {/* Tailwind FIX: bg-gradient-to-r -> bg-linear-to-r */}
                           <button
                             onClick={handleAddFood}
                             disabled={addingFood}
-                            className="flex-1 py-3 bg-linear-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 transition transform active:scale-95"
+                            className="flex-[2] py-3.5 bg-linear-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 transition transform active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                           >
-                            {addingFood ? 'Menyimpan...' : 'Simpan'}
+                            {addingFood ? 'Menyimpan...' : 'Simpan Asupan'}
                           </button>
                        </div>
                     </div>
