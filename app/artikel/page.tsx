@@ -2,29 +2,76 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase, getArticles, type Article } from '@/lib/supabase'
-import { Heart, LogOut, BookOpen, ExternalLink } from 'lucide-react'
+import { Canvas } from '@react-three/fiber'
+import { Sphere, MeshDistortMaterial, Float, Stars } from '@react-three/drei'
+import { motion } from 'framer-motion'
+import { supabase } from '@/lib/supabase'
+import { LogOut, BookOpen, Calendar, Tag, ArrowRight, ExternalLink, Loader2 } from 'lucide-react'
+
+type Article = {
+  article_id: string
+  title: string
+  thumbnail_url: string
+  external_url: string
+  category: string
+  description: string
+  published_at: string
+}
+
+function AnimatedBackground() {
+  return (
+    <div className="fixed inset-0 -z-10 h-full w-full bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
+      <Canvas camera={{ position: [0, 0, 5] }}>
+        <ambientLight intensity={0.5} />
+        <directionalLight position={[10, 10, 5]} intensity={1} />
+        <Float speed={2} rotationIntensity={1} floatIntensity={2}>
+          <Sphere args={[1, 100, 200]} scale={1.8} position={[2, 0, -2]}>
+            <MeshDistortMaterial color="#34d399" attach="material" distort={0.6} speed={2} roughness={0.2} />
+          </Sphere>
+        </Float>
+        <Float speed={1.5} rotationIntensity={1.5} floatIntensity={1.5}>
+           <Sphere args={[1, 64, 64]} scale={1.2} position={[-2, -1, -3]}>
+            <MeshDistortMaterial color="#2dd4bf" attach="material" distort={0.4} speed={3} opacity={0.6} transparent />
+          </Sphere>
+        </Float>
+        <Stars radius={10} depth={50} count={1000} factor={4} saturation={0} fade speed={1} />
+      </Canvas>
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden opacity-30 pointer-events-none">
+        <div className="absolute -top-[20%] -left-[10%] w-[50vw] h-[50vw] bg-emerald-300/30 rounded-full blur-[100px]" />
+        <div className="absolute top-[40%] -right-[10%] w-[40vw] h-[40vw] bg-teal-400/30 rounded-full blur-[120px]" />
+      </div>
+    </div>
+  )
+}
 
 export default function ArtikelPage() {
   const router = useRouter()
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedCategory, setSelectedCategory] = useState<string>('Semua')
 
   useEffect(() => {
-    const checkUserAndLoadArticles = async () => {
+    const fetchArticles = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         router.push('/login')
         return
       }
 
-      const articlesData = await getArticles()
-      setArticles(articlesData)
+      // Fetch articles from Supabase
+      const { data, error } = await supabase
+        .from('articles')
+        .select('*')
+        .order('published_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching articles:', error)
+      } else {
+        setArticles(data || [])
+      }
       setLoading(false)
     }
 
-    checkUserAndLoadArticles()
+    fetchArticles()
   }, [router])
 
   const handleLogout = async () => {
@@ -32,177 +79,145 @@ export default function ArtikelPage() {
     router.push('/')
   }
 
-  const categories = ['Semua', 'Edukasi', 'Panduan', 'Resep']
-  
-  const filteredArticles = selectedCategory === 'Semua' 
-    ? articles 
-    : articles.filter(a => a.category === selectedCategory)
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat artikel...</p>
-        </div>
-      </div>
-    )
+  // Format tanggal lokal Indonesia
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    })
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
-      {/* NAVBAR */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
+    <div className="relative min-h-screen text-gray-800 font-sans overflow-x-hidden">
+      <AnimatedBackground />
+
+      {/* --- GLASS NAVBAR --- */}
+      <motion.nav 
+        initial={{ y: -100 }} animate={{ y: 0 }}
+        className="sticky top-0 z-40 bg-white/40 backdrop-blur-xl border-b border-white/50 shadow-sm"
+      >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <img
-                 src="/logo.png"
-                  alt="NutriCalc+ Logo"
-                  className="mb-1 w-10 h-10 rounded-xl object-cover"
-                />
-              <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                NutriCalc+
+          <div className="flex justify-between items-center h-20">
+            <div className="flex items-center gap-3">
+              <motion.img src="/logo.png" alt="Logo" whileHover={{ rotate: 10, scale: 1.1 }} className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
+              <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-emerald-800">
+                NutriCalc<span className="text-emerald-500">+</span>
               </span>
             </div>
-            <div className="flex items-center gap-4">
-              <a href="/dashboard" className="text-emerald-600 font-semibold">Dashboard</a>
-              <a href="/riwayat" className="text-gray-700 hover:text-emerald-600">Riwayat</a>
-              <a href="/kalkulator" className="text-gray-700 hover:text-emerald-600">Database Pangan</a>
-              <a href="/artikel" className="text-gray-700 hover:text-emerald-600">Artikel</a>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:text-red-600 transition"
-              >
-                <LogOut className="w-4 h-4" />
-                Keluar
+            <div className="flex items-center gap-6">
+              <div className="hidden md:flex gap-6 text-sm font-medium text-gray-600">
+                <a href="/dashboard" className="hover:text-emerald-600 transition">Dashboard</a>
+                <a href="/riwayat" className="hover:text-emerald-600 transition">Riwayat</a>
+                <a href="/kalkulator" className="hover:text-emerald-600 transition">Database Pangan</a>
+                <a href="/artikel" className="text-emerald-700 font-bold">Artikel</a>
+              </div>
+              <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-full border border-transparent hover:border-red-200 transition-all text-sm font-bold">
+                <LogOut className="w-4 h-4" /> Keluar
               </button>
             </div>
           </div>
         </div>
-      </nav>
+      </motion.nav>
 
-      {/* MAIN CONTENT */}
+      {/* --- MAIN CONTENT --- */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-block p-3 bg-emerald-100 rounded-2xl mb-4">
+        
+        {/* Hero Section Artikel */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} 
+          animate={{ opacity: 1, y: 0 }} 
+          className="mb-12 text-center md:text-left"
+        >
+          <div className="inline-block p-4 bg-white/50 backdrop-blur-lg rounded-2xl mb-4 border border-white/60 shadow-sm">
             <BookOpen className="w-8 h-8 text-emerald-600" />
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Artikel & Edukasi Gizi
+          <h1 className="text-4xl md:text-5xl font-extrabold text-gray-900 mb-4">
+            Pustaka <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500">Kesehatan</span>
           </h1>
-          <p className="text-xl text-gray-600">
-            Pelajari lebih dalam tentang nutrisi dan gaya hidup sehat
+          <p className="text-xl text-gray-600 max-w-2xl">
+            Kumpulan artikel terpercaya untuk panduan nutrisi dan gaya hidup sehat Anda.
           </p>
-        </div>
-
-        {/* Category Filter */}
-        <div className="flex justify-center gap-3 mb-12">
-          {categories.map((category) => (
-            <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-6 py-2 rounded-full font-medium transition-all ${
-                selectedCategory === category
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg'
-                  : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
+        </motion.div>
 
         {/* Articles Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredArticles.map((article) => (
-            <a
-              key={article.article_id}
-              href={article.external_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden transform hover:-translate-y-2"
-            >
-              {/* Thumbnail */}
-              <div className="relative h-48 bg-gradient-to-br from-emerald-100 to-teal-100 overflow-hidden">
-                {article.thumbnail_url ? (
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+              <span className="text-gray-500 font-medium">Memuat artikel...</span>
+            </div>
+          </div>
+        ) : articles.length === 0 ? (
+          <div className="p-12 text-center bg-white/40 backdrop-blur-md rounded-3xl border border-white/50">
+            <BookOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900">Belum ada artikel</h3>
+            <p className="text-gray-500">Cek kembali nanti untuk update terbaru.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {articles.map((article, index) => (
+              <motion.div
+                key={article.article_id}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                whileHover={{ y: -10 }}
+                className="group flex flex-col h-full bg-white/60 backdrop-blur-xl border border-white/60 rounded-[2rem] overflow-hidden shadow-xl hover:shadow-2xl hover:shadow-emerald-500/10 transition-all duration-300"
+              >
+                {/* Image Container with Zoom Effect */}
+                <div className="relative h-52 overflow-hidden">
                   <img
-                    src={article.thumbnail_url}
+                    src={article.thumbnail_url || 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?q=80&w=2053&auto=format&fit=crop'}
                     alt={article.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <BookOpen className="w-16 h-16 text-emerald-600 opacity-50" />
+                  {/* Category Badge Floating */}
+                  <div className="absolute top-4 left-4">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-white/90 backdrop-blur text-emerald-700 shadow-sm">
+                      <Tag className="w-3 h-3 mr-1" />
+                      {article.category || 'Umum'}
+                    </span>
                   </div>
-                )}
-                
-                {/* Category Badge */}
-                {article.category && (
-                  <div className="absolute top-4 right-4 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-emerald-600">
-                    {article.category}
-                  </div>
-                )}
-
-                {/* External Link Icon */}
-                <div className="absolute bottom-4 right-4 w-10 h-10 bg-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
-                  <ExternalLink className="w-5 h-5 text-emerald-600" />
                 </div>
-              </div>
 
-              {/* Content */}
-              <div className="p-6">
-                <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-emerald-600 transition-colors line-clamp-2">
-                  {article.title}
-                </h3>
-                
-                {article.description && (
-                  <p className="text-gray-600 text-sm line-clamp-3">
+                {/* Content */}
+                <div className="flex flex-col flex-grow p-6">
+                  {/* Date */}
+                  <div className="flex items-center text-xs text-gray-500 mb-3 font-medium">
+                    <Calendar className="w-3 h-3 mr-1.5" />
+                    {formatDate(article.published_at)}
+                  </div>
+
+                  {/* Title */}
+                  <h2 className="text-xl font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-emerald-700 transition-colors">
+                    {article.title}
+                  </h2>
+
+                  {/* Description */}
+                  <p className="text-gray-600 text-sm line-clamp-3 mb-6 flex-grow leading-relaxed">
                     {article.description}
                   </p>
-                )}
 
-                {/* Read More */}
-                <div className="mt-4 flex items-center gap-2 text-emerald-600 font-medium text-sm">
-                  Baca Selengkapnya
-                  <ExternalLink className="w-4 h-4" />
+                  {/* Action Button */}
+                  <div className="mt-auto pt-4 border-t border-gray-100/50">
+                    <a
+                      href={article.external_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm font-bold text-gray-900 hover:text-emerald-600 transition-colors group/btn"
+                    >
+                      Baca Selengkapnya
+                      <div className="bg-gray-100 group-hover/btn:bg-emerald-100 p-1.5 rounded-full transition-colors">
+                        <ArrowRight className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
+                      </div>
+                    </a>
+                  </div>
                 </div>
-              </div>
-            </a>
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {filteredArticles.length === 0 && (
-          <div className="text-center py-16">
-            <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 text-lg">Tidak ada artikel di kategori ini</p>
+              </motion.div>
+            ))}
           </div>
         )}
-
-        {/* Info Box */}
-        <div className="mt-16 p-8 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-3xl border-2 border-blue-200">
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">
-            💡 Tahukah Anda?
-          </h3>
-          <p className="text-gray-700 mb-4">
-            Artikel-artikel di NutriCalc+ dikurasi dari sumber terpercaya seperti Kementerian Kesehatan RI, 
-            WHO, dan media kesehatan yang kredibel. Kami berkomitmen untuk memberikan informasi gizi yang 
-            akurat dan berbasis ilmiah.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <span className="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700">
-              ✅ Terverifikasi
-            </span>
-            <span className="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700">
-              📚 Berbasis Riset
-            </span>
-            <span className="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700">
-              🇮🇩 Untuk Indonesia
-            </span>
-          </div>
-        </div>
       </div>
     </div>
   )
