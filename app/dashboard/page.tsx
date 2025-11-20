@@ -21,6 +21,9 @@ import {
   Heart, LogOut, Plus, Search, X, Target, Activity, Edit, Save, Ruler, Weight, ChevronRight, Flame, Zap, Droplet
 } from 'lucide-react'
 
+// =====================================================
+// 1. REUSABLE 3D BACKGROUND
+// =====================================================
 function AnimatedBackground() {
   return (
     <div className="fixed inset-0 -z-10 h-full w-full bg-linear-to-br from-emerald-50 via-teal-50 to-cyan-50">
@@ -47,6 +50,9 @@ function AnimatedBackground() {
   )
 }
 
+// =====================================================
+// 2. MAIN DASHBOARD COMPONENT
+// =====================================================
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
