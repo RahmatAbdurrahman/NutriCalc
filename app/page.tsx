@@ -4,8 +4,7 @@ import { useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Sphere, MeshDistortMaterial, Float, Stars } from '@react-three/drei'
 import { Calculator, TrendingUp, Heart, Target, Activity, ChevronRight } from 'lucide-react'
-// Pastikan path import ini sesuai dengan struktur project Anda
-import { calculateNutrition, activityLevels } from '@/lib/supabase'
+import { activityLevels } from '@/lib/supabase' // Hapus calculateNutrition jika tidak dipakai langsung di sini, atau biarkan jika untuk kalkulator guest
 import { motion, useScroll, useTransform, AnimatePresence, useMotionValue } from 'framer-motion'
 
 // =====================================================
@@ -13,7 +12,7 @@ import { motion, useScroll, useTransform, AnimatePresence, useMotionValue } from
 // =====================================================
 function AnimatedBackground() {
   return (
-    <div className="fixed inset-0 -z-10 h-full w-full bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50">
+    <div className="fixed inset-0 -z-10 h-full w-full bg-linear-to-br from-emerald-50 via-teal-50 to-cyan-50">
       <Canvas camera={{ position: [0, 0, 5] }}>
         <ambientLight intensity={0.5} />
         <directionalLight position={[10, 10, 5]} intensity={1} />
@@ -111,19 +110,8 @@ export default function LandingPage() {
     await new Promise(resolve => setTimeout(resolve, 1000)); 
 
     try {
-      const data = {
-        usia: parseInt(formData.usia),
-        gender: formData.gender,
-        berat_kg: parseFloat(formData.berat_kg),
-        tinggi_cm: parseFloat(formData.tinggi_cm),
-        level_aktivitas: formData.level_aktivitas
-      }
-
-      // Ganti dengan fungsi asli Anda jika backend sudah siap:
-      // const response = await calculateNutrition(data)
-      // setResult(response.data)
-      
-      // MOCK RESULT (Hapus ini jika sudah connect backend)
+      // Mock result (Ganti dengan calculateNutrition(data) asli jika backend siap)
+      // Ini kalkulator "Guest Mode" yang cepat
       setResult({
          tdee: 2450,
          protein_g: 150,
@@ -144,7 +132,7 @@ export default function LandingPage() {
     <div className="relative min-h-screen text-gray-800 selection:bg-emerald-200 font-sans overflow-x-hidden">
       <AnimatedBackground />
 
-      {/* NAVBAR */}
+      {/* NAVBAR (UPDATED LINKS) */}
       <motion.nav 
         initial={{ y: -100 }} 
         animate={{ y: 0 }} 
@@ -160,17 +148,17 @@ export default function LandingPage() {
                 whileHover={{ rotate: 10, scale: 1.1 }}
                 className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20"
               />
-              <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-800 to-emerald-800">
+              <span className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-gray-800 to-emerald-800">
                 NutriCalc<span className="text-emerald-500">+</span>
               </span>
             </div>
 
-            {/* Nav Links */}
+            {/* Nav Links (UPDATED TO /auth) */}
             <div className="flex gap-4">
-              <a href="/login" className="hidden sm:block px-5 py-2 font-medium hover:text-emerald-600 transition-colors">
+              <a href="/auth" className="hidden sm:block px-5 py-2 font-medium hover:text-emerald-600 transition-colors">
                 Masuk
               </a>
-              <a href="/register" className="px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 hover:shadow-lg transition-all hover:scale-105 active:scale-95">
+              <a href="/auth" className="px-6 py-2 bg-gray-900 text-white rounded-full hover:bg-gray-800 hover:shadow-lg transition-all hover:scale-105 active:scale-95">
                 Daftar Gratis
               </a>
             </div>
@@ -178,7 +166,7 @@ export default function LandingPage() {
         </div>
       </motion.nav>
 
-      {/* HERO SECTION (Updated with TiltCard Image) */}
+      {/* HERO SECTION */}
       <section className="relative pt-32 pb-20 lg:pt-48 min-h-screen flex items-center">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
@@ -199,9 +187,9 @@ export default function LandingPage() {
               </div>
 
               <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight text-gray-900 leading-[1.1]">
-                Hitung dan<br/>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500">
-                  Tracking Gizi Harian Anda.
+                Hitung Gizi.<br/>
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-500 to-teal-500">
+                  Tanpa Kompromi.
                 </span>
               </h1>
 
@@ -225,7 +213,7 @@ export default function LandingPage() {
             <div className="relative flex items-center justify-center perspective-1000 hidden lg:flex">
                <TiltCard className="relative w-full max-w-lg aspect-square bg-white/10 backdrop-blur-sm rounded-[3rem] border border-white/20 shadow-2xl shadow-emerald-500/10 flex items-center justify-center">
                   {/* Background Glow inside Card */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/10 to-teal-500/10 rounded-[3rem] -z-10" />
+                  <div className="absolute inset-0 bg-linear-to-tr from-emerald-500/10 to-teal-500/10 rounded-[3rem] -z-10" />
 
                   {/* Main Character */}
                   <motion.img
@@ -236,7 +224,7 @@ export default function LandingPage() {
                     transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                   />
 
-                  {/* Floating Element 1 */}
+                  {/* Floating Elements (Decorations) */}
                   <div className="absolute top-10 -right-6 bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-lg border border-white/50 animate-float-slow z-20">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-orange-500">
@@ -249,7 +237,6 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  {/* Floating Element 2 */}
                   <div className="absolute bottom-10 -left-6 bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-lg border border-white/50 animate-float-delayed z-20">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-500">
@@ -273,7 +260,6 @@ export default function LandingPage() {
       {/* CALCULATOR SECTION */}
       <section id="calculator" className="relative py-16">
         <div className="max-w-4xl mx-auto px-4">
-          {/* Calculator Wrapped in TiltCard */}
           <TiltCard className="relative bg-white/60 backdrop-blur-2xl border border-white/50 rounded-[2.5rem] shadow-2xl shadow-emerald-900/5 p-8 md:p-12 overflow-hidden">
             
             <div className="text-center mb-10">
@@ -286,6 +272,7 @@ export default function LandingPage() {
             </div>
 
             <form onSubmit={handleCalculate} className="space-y-6 relative z-10">
+              {/* Form Inputs (Same as before) */}
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="group">
                   <label className="block text-sm font-medium text-gray-700 mb-2 ml-1">Usia (tahun)</label>
@@ -363,20 +350,20 @@ export default function LandingPage() {
                 disabled={loading}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold text-lg rounded-2xl shadow-lg hover:shadow-emerald-500/25 transition-all disabled:opacity-50"
+                className="w-full py-4 bg-linear-to-r from-emerald-500 to-teal-600 text-white font-bold text-lg rounded-2xl shadow-lg hover:shadow-emerald-500/25 transition-all disabled:opacity-50"
               >
                 {loading ? 'Menghitung...' : '🧮 Hitung Kebutuhan Gizi'}
               </motion.button>
             </form>
 
-            {/* RESULT SECTION WITH ANIMATE PRESENCE */}
+            {/* RESULT SECTION */}
             <AnimatePresence>
               {result && (
                 <motion.div 
                   initial={{ opacity: 0, y: 50 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="mt-10 p-8 bg-gradient-to-br from-emerald-50/80 to-teal-50/80 rounded-3xl border border-emerald-100/50 backdrop-blur-sm"
+                  className="mt-10 p-8 bg-linear-to-br from-emerald-50/80 to-teal-50/80 rounded-3xl border border-emerald-100/50 backdrop-blur-sm"
                 >
                   <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
                     📊 Hasil Kalkulasi Anda
@@ -416,13 +403,13 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  {/* Call To Action (CTA) */}
+                  {/* Call To Action (CTA) - Redirects to Auth */}
                   <div className="text-center pt-4 border-t border-emerald-200/50">
                     <p className="text-gray-700 mb-4 font-medium">
                       Daftar sekarang untuk tracking progres dan fitur lengkap!
                     </p>
                     <motion.a
-                      href="/register"
+                      href="/auth"
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                       className="inline-block px-8 py-3 bg-gradient-to-r from-gray-900 to-gray-800 text-white font-semibold rounded-xl hover:shadow-xl transition-all"
@@ -449,7 +436,7 @@ export default function LandingPage() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          {/* CARD 1: Tracking Harian */}
+          {/* Feature Cards (Same as before) */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -470,7 +457,6 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          {/* CARD 2: Kalkulasi Presisi */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -492,7 +478,6 @@ export default function LandingPage() {
             </p>
           </motion.div>
 
-          {/* CARD 3: Edukasi Gizi */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}

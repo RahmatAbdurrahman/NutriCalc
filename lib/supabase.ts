@@ -95,7 +95,7 @@ export type NutritionTarget = {
 // ACTIVITY LEVELS
 // =====================================================
 export const activityLevels = [
-  { value: 1.2, label: 'Sangat Ringan', description: 'Tidak berolahraga, kerja kantoran' },
+  { value: 1.2, label: 'Sangat Ringan', description: 'Tidak berolahraga' },
   { value: 1.375, label: 'Ringan', description: 'Olahraga ringan 1-3x/minggu' },
   { value: 1.55, label: 'Sedang', description: 'Olahraga sedang 3-5x/minggu' },
   { value: 1.725, label: 'Berat', description: 'Olahraga berat 6-7x/minggu' },

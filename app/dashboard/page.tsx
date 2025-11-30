@@ -238,7 +238,9 @@ export default function DashboardPage() {
         >
           <div>
             <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
-              Halo, <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-500 to-teal-500">{user?.email?.split('@')[0]}</span> 👋
+              Halo, <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-500 to-teal-500 capitalize">
+                {user?.user_metadata?.username || user?.email?.split('@')[0]}
+              </span> 👋
             </h1>
             <p className="text-gray-500 font-medium">Ayo capai target nutrisi hari ini!</p>
           </div>
