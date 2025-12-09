@@ -9,21 +9,20 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   supabase, 
   calculateAge, 
-  calculateNutrition,
-  type Food,
-  type Profile
+  calculateNutrition
 } from '@/lib/supabase'
 import { 
-  LogOut, Activity, BarChart2, Zap, Droplet, Flame, Target, BookOpen, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, CheckCircle, AlertTriangle, ChevronsDown
-} from 'lucide-react' // Menambahkan ikon baru
+  LogOut, Activity, BarChart2, Zap, Droplet, Flame, Target, BookOpen, 
+  ChevronLeft, ChevronRight, TrendingUp, CheckCircle, AlertTriangle, ChevronsDown,
+  Menu, X // <--- Added Menu & X icon for Navbar
+} from 'lucide-react' 
 import { 
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend
 } from 'recharts'
 import { 
-  format, subDays, addDays, startOfISOWeek, endOfISOWeek, isSameDay, eachDayOfInterval, isBefore 
+  format, subDays, addDays, startOfISOWeek, endOfISOWeek, eachDayOfInterval, isBefore 
 } from 'date-fns'
 import { id as indonesiaLocale } from 'date-fns/locale'
-import Navbar from '@/components/Navbar'
 
 // =====================================================
 // 1. Tipe Data untuk Agregasi
@@ -34,7 +33,7 @@ type DailyAggregate = {
   totalProtein: number;
   totalCarbs: number;
   totalFat: number;
-  status: 'onTarget' | 'overTarget' | 'underTarget' | 'noData'; // Logika 3 Kategori
+  status: 'onTarget' | 'overTarget' | 'underTarget' | 'noData';
 }
 
 type HabitStats = {
@@ -77,9 +76,11 @@ function AnimatedBackground() {
 // =====================================================
 export default function RiwayatPage() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
   const [nutritionTarget, setNutritionTarget] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+
+  // Navbar State (Mobile)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   // State untuk data yang sudah diproses
   const [allDailyData, setAllDailyData] = useState<Map<string, DailyAggregate>>(new Map())
@@ -97,18 +98,24 @@ export default function RiwayatPage() {
       // 1. Dapatkan User & Profile
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      setUser(user)
 
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (!profile) { router.push('/lengkapi-profil'); return }
 
-      // 2. Hitung Target Nutrisi
+      // 2. Hitung Target Nutrisi (Gunakan Fungsi Helper yang sudah di-update dengan 'tujuan')
       const age = calculateAge(profile.tgl_lahir)
       const { data: target } = await calculateNutrition({
-        usia: age, gender: profile.gender, berat_kg: profile.berat_kg, tinggi_cm: profile.tinggi_cm, level_aktivitas: profile.level_aktivitas
+        usia: age, 
+        gender: profile.gender, 
+        berat_kg: profile.berat_kg, 
+        tinggi_cm: profile.tinggi_cm, 
+        level_aktivitas: profile.level_aktivitas,
+        tujuan: profile.tujuan // Pastikan properti tujuan dikirim
       })
       setNutritionTarget(target)
-      const TDEE = target.tdee
+      
+      // Gunakan target_calories (bukan tdee) sebagai acuan visualisasi jika ada tujuan spesifik
+      const REFERENCE_CALORIES = target.target_calories || target.tdee
 
       // 3. Ambil Log 90 Hari Terakhir
       const ninetyDaysAgo = subDays(new Date(), 90).toISOString()
@@ -191,11 +198,12 @@ export default function RiwayatPage() {
           totalFatLast30Days += data.totalFat
           
           // LOGIKA STATUS 3 KATEGORI (FIXED)
-          if (totalCalories > TDEE * 1.1) { // Di atas 110%
+          // Menggunakan REFERENCE_CALORIES (target_calories) sebagai acuan
+          if (totalCalories > REFERENCE_CALORIES * 1.1) { // Di atas 110%
             status = 'overTarget'
             consistencyCounts.overTarget++
             lastDayWasOnTarget = false
-          } else if (totalCalories < TDEE * 0.9) { // Di bawah 90%
+          } else if (totalCalories < REFERENCE_CALORIES * 0.9) { // Di bawah 90%
             status = 'underTarget'
             consistencyCounts.underTarget++
             lastDayWasOnTarget = false
@@ -257,13 +265,16 @@ export default function RiwayatPage() {
 
     const weekInterval = eachDayOfInterval({ start: currentWeekStart, end: addDays(currentWeekStart, 6) })
     
+    // Gunakan target_calories untuk garis referensi grafik
+    const targetVal = nutritionTarget.target_calories || nutritionTarget.tdee
+
     const newTrendData = weekInterval.map(day => {
       const dateKey = format(day, 'yyyy-MM-dd')
       const data = allDailyData.get(dateKey)
       return {
         name: format(day, 'E', { locale: indonesiaLocale }), 
         kalori: data ? Math.round(data.totalCalories) : 0,
-        target: nutritionTarget.tdee
+        target: targetVal
       }
     })
     
@@ -301,32 +312,70 @@ export default function RiwayatPage() {
     <div className="relative min-h-screen text-gray-800 font-sans overflow-x-hidden">
       <AnimatedBackground />
 
-      {/* --- GLASS NAVBAR --- */}
+      {/* --- GLASS NAVBAR (RESPONSIVE - MANUAL) --- */}
       <motion.nav 
         initial={{ y: -100 }} animate={{ y: 0 }}
         className="sticky top-0 z-40 bg-white/40 backdrop-blur-xl border-b border-white/50 shadow-sm"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
+            {/* Logo */}
             <div className="flex items-center gap-3">
               <motion.img src="/logo.png" alt="Logo" whileHover={{ rotate: 10, scale: 1.1 }} className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
               <span className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-gray-800 to-emerald-800">
                 NutriCalc<span className="text-emerald-500">+</span>
               </span>
             </div>
-            <div className="flex items-center gap-6">
-              <div className="hidden md:flex gap-6 text-sm font-medium text-gray-600">
-                <a href="/dashboard" className="hover:text-emerald-600 transition">Dashboard</a>
-                <a href="/riwayat" className="text-emerald-700 font-bold">Riwayat</a>
-                <a href="/kalkulator" className="hover:text-emerald-600 transition">Database Pangan</a>
-                <a href="/artikel" className="hover:text-emerald-600 transition">Artikel</a>
+
+            {/* Desktop Menu (Hidden on Mobile) */}
+            <div className="hidden md:flex items-center gap-6">
+              <div className="flex gap-6 text-sm font-medium text-gray-600">
+                <a href="/dashboard" className="hover:text-emerald-600 transition pb-1 border-b-2 border-transparent hover:border-emerald-200">Dashboard</a>
+                <a href="/riwayat" className="text-emerald-700 font-bold border-b-2 border-emerald-500 pb-1">Riwayat</a>
+                <a href="/kalkulator" className="hover:text-emerald-600 transition pb-1 border-b-2 border-transparent hover:border-emerald-200">Database Pangan</a>
+                <a href="/artikel" className="hover:text-emerald-600 transition pb-1 border-b-2 border-transparent hover:border-emerald-200">Artikel</a>
               </div>
               <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-full border border-transparent hover:border-red-200 transition-all text-sm font-bold">
                 <LogOut className="w-4 h-4" /> Keluar
               </button>
             </div>
+
+            {/* Mobile Menu Button (Visible on Mobile) */}
+            <div className="md:hidden flex items-center">
+              <button 
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 rounded-xl text-gray-600 hover:bg-white/50 transition"
+              >
+                {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="md:hidden overflow-hidden bg-white/80 backdrop-blur-xl border-t border-white/50"
+            >
+              <div className="px-4 pt-4 pb-6 space-y-2">
+                <a href="/dashboard" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Dashboard</a>
+                <a href="/riwayat" className="block px-4 py-3 rounded-xl bg-emerald-50 text-emerald-700 font-bold">Riwayat</a>
+                <a href="/kalkulator" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Database Pangan</a>
+                <a href="/artikel" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Artikel</a>
+                
+                <div className="pt-4 mt-4 border-t border-gray-100">
+                  <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition">
+                    <LogOut className="w-4 h-4" /> Keluar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.nav>
 
       {/* --- MAIN CONTENT --- */}
@@ -492,7 +541,7 @@ export default function RiwayatPage() {
                 </div>
               </div>
             ) : (
-               <p className="text-gray-500">Belum ada pola makan yang terdeteksi.</p>
+              <p className="text-gray-500">Belum ada pola makan yang terdeteksi.</p>
             )}
           </motion.div>
         </div>

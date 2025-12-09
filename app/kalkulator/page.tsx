@@ -4,12 +4,11 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Canvas } from '@react-three/fiber'
 import { Sphere, MeshDistortMaterial, Float, Stars } from '@react-three/drei'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { supabase, type Food } from '@/lib/supabase'
 import { 
-  LogOut, Database, Search, Flame, Zap, Droplet, Activity, Download, Loader2, ExternalLink 
-} from 'lucide-react'
-import Navbar from '@/components/Navbar'
+  LogOut, Database, Search, Flame, Zap, Droplet, Activity, Download, Loader2, ExternalLink, Menu, X 
+} from 'lucide-react' // <--- Added Menu & X
 
 function AnimatedBackground() {
   return (
@@ -44,6 +43,9 @@ export default function DatabasePanganPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [isDownloading, setIsDownloading] = useState(false) 
+
+  // Navbar State (Mobile)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     const fetchFilteredFoods = async () => {
@@ -109,32 +111,70 @@ export default function DatabasePanganPage() {
     <div className="relative min-h-screen text-gray-800 font-sans overflow-x-hidden">
       <AnimatedBackground />
 
-      {/* --- GLASS NAVBAR --- */}
+      {/* --- GLASS NAVBAR (RESPONSIVE) --- */}
       <motion.nav 
         initial={{ y: -100 }} animate={{ y: 0 }}
         className="sticky top-0 z-40 bg-white/40 backdrop-blur-xl border-b border-white/50 shadow-sm"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
+            {/* Logo */}
             <div className="flex items-center gap-3">
               <motion.img src="/logo.png" alt="Logo" whileHover={{ rotate: 10, scale: 1.1 }} className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
               <span className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-gray-800 to-emerald-800">
                 NutriCalc<span className="text-emerald-500">+</span>
               </span>
             </div>
-            <div className="flex items-center gap-6">
-              <div className="hidden md:flex gap-6 text-sm font-medium text-gray-600">
-                <a href="/dashboard" className="hover:text-emerald-600 transition">Dashboard</a>
-                <a href="/riwayat" className="hover:text-emerald-600 transition">Riwayat</a>
-                <a href="/kalkulator" className="text-emerald-700 font-bold">Database Pangan</a>
-                <a href="/artikel" className="hover:text-emerald-600 transition">Artikel</a>
+
+            {/* Desktop Menu (Hidden on Mobile) */}
+            <div className="hidden md:flex items-center gap-6">
+              <div className="flex gap-6 text-sm font-medium text-gray-600">
+                <a href="/dashboard" className="hover:text-emerald-600 transition pb-1 border-b-2 border-transparent hover:border-emerald-200">Dashboard</a>
+                <a href="/riwayat" className="hover:text-emerald-600 transition pb-1 border-b-2 border-transparent hover:border-emerald-200">Riwayat</a>
+                <a href="/kalkulator" className="text-emerald-700 font-bold border-b-2 border-emerald-500 pb-1">Database Pangan</a>
+                <a href="/artikel" className="hover:text-emerald-600 transition pb-1 border-b-2 border-transparent hover:border-emerald-200">Artikel</a>
               </div>
               <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-full border border-transparent hover:border-red-200 transition-all text-sm font-bold">
                 <LogOut className="w-4 h-4" /> Keluar
               </button>
             </div>
+
+            {/* Mobile Menu Button (Visible on Mobile) */}
+            <div className="md:hidden flex items-center">
+              <button 
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 rounded-xl text-gray-600 hover:bg-white/50 transition"
+              >
+                {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="md:hidden overflow-hidden bg-white/80 backdrop-blur-xl border-t border-white/50"
+            >
+              <div className="px-4 pt-4 pb-6 space-y-2">
+                <a href="/dashboard" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Dashboard</a>
+                <a href="/riwayat" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Riwayat</a>
+                <a href="/kalkulator" className="block px-4 py-3 rounded-xl bg-emerald-50 text-emerald-700 font-bold">Database Pangan</a>
+                <a href="/artikel" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Artikel</a>
+                
+                <div className="pt-4 mt-4 border-t border-gray-100">
+                  <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition">
+                    <LogOut className="w-4 h-4" /> Keluar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.nav>
 
       {/* --- MAIN CONTENT --- */}
@@ -234,7 +274,7 @@ export default function DatabasePanganPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-3xl p-5 flex flex-col justify-between shadow-lg"
+                  className="bg-white/40 backdrop-blur-lg border border-white/60 rounded-3xl p-5 flex flex-col justify-between shadow-lg hover:shadow-emerald-500/10 transition-shadow"
                 >
                   <div>
                     <h3 className="text-xl font-bold text-gray-900 mb-4">

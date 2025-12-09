@@ -148,8 +148,8 @@ export default function AuthPage() {
             {/* Header Login */}
             <div className="text-center mb-8">
               <div className="flex items-center justify-center gap-2 mb-2">
-                {/* Ganti src logo sesuai asset kamu */}
-                {/* <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-md" /> */}
+                
+                <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-md" />
                 <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-teal-600">
                   NutriCalc+
                 </span>
@@ -216,7 +216,7 @@ export default function AuthPage() {
           <div className="w-full max-w-sm">
             <div className="text-center mb-6">
               <div className="flex items-center justify-center gap-2 mb-2">
-                 {/* <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-md" /> */}
+                 <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-xl object-cover shadow-md" />
                 <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-teal-600">
                   NutriCalc+
                 </span>
