@@ -131,6 +131,7 @@ export async function calculateNutrition(data: {
   berat_kg: number
   tinggi_cm: number
   level_aktivitas: number
+  tujuan?: 'turun' | 'tetap' | 'naik'
 }) {
   const response = await fetch(
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-nutrition-needs`,

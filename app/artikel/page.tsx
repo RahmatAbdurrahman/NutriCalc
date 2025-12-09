@@ -7,6 +7,7 @@ import { Sphere, MeshDistortMaterial, Float, Stars } from '@react-three/drei'
 import { motion } from 'framer-motion'
 import { supabase } from '@/lib/supabase'
 import { LogOut, BookOpen, Calendar, Tag, ArrowRight, ExternalLink, Loader2 } from 'lucide-react'
+import Navbar from '@/components/Navbar'
 
 type Article = {
   article_id: string

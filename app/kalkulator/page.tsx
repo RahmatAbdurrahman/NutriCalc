@@ -9,6 +9,7 @@ import { supabase, type Food } from '@/lib/supabase'
 import { 
   LogOut, Database, Search, Flame, Zap, Droplet, Activity, Download, Loader2, ExternalLink 
 } from 'lucide-react'
+import Navbar from '@/components/Navbar'
 
 function AnimatedBackground() {
   return (

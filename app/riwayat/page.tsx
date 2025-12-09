@@ -23,6 +23,7 @@ import {
   format, subDays, addDays, startOfISOWeek, endOfISOWeek, isSameDay, eachDayOfInterval, isBefore 
 } from 'date-fns'
 import { id as indonesiaLocale } from 'date-fns/locale'
+import Navbar from '@/components/Navbar'
 
 // =====================================================
 // 1. Tipe Data untuk Agregasi

@@ -18,8 +18,8 @@ import {
   type URTConversion
 } from '@/lib/supabase'
 import { 
-  LogOut, Plus, Search, X, Target, Activity, Edit, Save, 
-  ChevronRight, Flame, Zap, Droplet, Menu // <--- Import Menu
+  Heart, LogOut, Plus, Search, X, Target, Activity, Edit, Save, 
+  Ruler, Weight, ChevronRight, Flame, Zap, Droplet, Menu, TrendingDown, Minus, TrendingUp 
 } from 'lucide-react'
 
 // =====================================================
@@ -56,23 +56,20 @@ function AnimatedBackground() {
 // =====================================================
 export default function DashboardPage() {
   const router = useRouter()
-  
-  // --- STATE MANAGEMENT ---
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [nutritionTarget, setNutritionTarget] = useState<any>(null)
   const [todayLogs, setTodayLogs] = useState<any[]>([])
   const [todayTotal, setTodayTotal] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
 
-  // UI States
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false) // <--- State untuk Hamburger Menu
-  const [loading, setLoading] = useState(true)
-  
-  // Modal States
+  // Navbar State
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  // Modal states
   const [showAddFoodModal, setShowAddFoodModal] = useState(false)
   const [showUpdateDataModal, setShowUpdateDataModal] = useState(false)
   
-  // Add Food Form States
+  // Search & Food States
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Food[]>([])
   const [selectedFood, setSelectedFood] = useState<Food | null>(null)
@@ -80,38 +77,48 @@ export default function DashboardPage() {
   const [selectedURT, setSelectedURT] = useState<URTConversion | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [mealType, setMealType] = useState<'sarapan' | 'makan_siang' | 'makan_malam' | 'snack'>('sarapan')
-  const [addingFood, setAddingFood] = useState(false)
 
-  // Update Profile Form States
-  const [updateFormData, setUpdateFormData] = useState({ berat_kg: '', tinggi_cm: '', level_aktivitas: 1.55 })
+  // Update Form State (Termasuk TUJUAN)
+  const [updateFormData, setUpdateFormData] = useState({ 
+    berat_kg: '', 
+    tinggi_cm: '', 
+    level_aktivitas: 1.55,
+    tujuan: 'tetap' as 'turun' | 'tetap' | 'naik'
+  })
+
+  const [loading, setLoading] = useState(true)
+  const [addingFood, setAddingFood] = useState(false)
   const [updating, setUpdating] = useState(false)
 
   // --- LOGIC: LOAD DATA ---
   useEffect(() => {
     const loadData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/auth'); return }
+      if (!user) { router.push('/login'); return }
       setUser(user)
 
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       if (!profileData) { router.push('/lengkapi-profil'); return }
       setProfile(profileData)
       
+      // Isi form update dengan data eksisting (termasuk tujuan)
       setUpdateFormData({
         berat_kg: profileData.berat_kg.toString(),
         tinggi_cm: profileData.tinggi_cm.toString(),
-        level_aktivitas: profileData.level_aktivitas
+        level_aktivitas: profileData.level_aktivitas,
+        tujuan: profileData.tujuan || 'tetap'
       })
 
       const age = calculateAge(profileData.tgl_lahir)
-      // Gunakan Edge Function untuk kalkulasi presisi
+      
+      // Panggil kalkulasi dengan data lengkap (+tujuan)
       const nutritionData = await calculateNutrition({
         usia: age, 
         gender: profileData.gender, 
         berat_kg: profileData.berat_kg, 
         tinggi_cm: profileData.tinggi_cm, 
         level_aktivitas: profileData.level_aktivitas,
-        tujuan: profileData.tujuan
+        tujuan: profileData.tujuan // <--- PENTING: Kirim tujuan ke Edge Function
       })
       
       setNutritionTarget(nutritionData.data)
@@ -140,7 +147,6 @@ export default function DashboardPage() {
     })
   }
 
-  // --- HANDLERS ---
   const handleUpdateData = async (e: React.FormEvent) => {
     e.preventDefault()
     setUpdating(true)
@@ -148,22 +154,31 @@ export default function DashboardPage() {
       const { error: updateError } = await supabase.from('profiles').update({
           berat_kg: parseFloat(updateFormData.berat_kg),
           tinggi_cm: parseInt(updateFormData.tinggi_cm),
-          level_aktivitas: updateFormData.level_aktivitas
+          level_aktivitas: updateFormData.level_aktivitas,
+          tujuan: updateFormData.tujuan // <--- Update Tujuan di DB
         }).eq('id', user.id)
       if (updateError) throw updateError
 
-      // Recalculate
       const age = calculateAge(profile.tgl_lahir)
+      
+      // Kalkulasi ulang dengan data baru
       const nutritionData = await calculateNutrition({
         usia: age, 
         gender: profile.gender, 
         berat_kg: parseFloat(updateFormData.berat_kg), 
         tinggi_cm: parseInt(updateFormData.tinggi_cm), 
         level_aktivitas: updateFormData.level_aktivitas,
-        tujuan: profile.tujuan
+        tujuan: updateFormData.tujuan // <--- Pakai tujuan baru
       })
+      
       setNutritionTarget(nutritionData.data)
-      setProfile({ ...profile, berat_kg: parseFloat(updateFormData.berat_kg), tinggi_cm: parseInt(updateFormData.tinggi_cm), level_aktivitas: updateFormData.level_aktivitas })
+      setProfile({ 
+        ...profile, 
+        berat_kg: parseFloat(updateFormData.berat_kg), 
+        tinggi_cm: parseInt(updateFormData.tinggi_cm), 
+        level_aktivitas: updateFormData.level_aktivitas,
+        tujuan: updateFormData.tujuan
+      })
       setShowUpdateDataModal(false)
     } catch (error) { console.error('Error:', error) } finally { setUpdating(false) }
   }
@@ -200,7 +215,7 @@ export default function DashboardPage() {
   const handleLogout = async () => { await supabase.auth.signOut(); router.push('/') }
 
   // Progress Calculation
-  const calorieProgress = nutritionTarget ? (todayTotal.calories / nutritionTarget.target_calories) * 100 : 0
+  const calorieProgress = nutritionTarget ? (todayTotal.calories / nutritionTarget.target_calories) * 100 : 0 // <--- PENTING: Gunakan target_calories (hasil goal), bukan tdee
   const proteinProgress = nutritionTarget ? (todayTotal.protein / nutritionTarget.protein_g) * 100 : 0
   const carbsProgress = nutritionTarget ? (todayTotal.carbs / nutritionTarget.carbs_g) * 100 : 0
   const fatProgress = nutritionTarget ? (todayTotal.fat / nutritionTarget.fat_g) * 100 : 0
@@ -220,7 +235,7 @@ export default function DashboardPage() {
     <div className="relative min-h-screen text-gray-800 font-sans overflow-x-hidden">
       <AnimatedBackground />
 
-      {/* --- RESPONSIVE NAVBAR --- */}
+      {/* --- GLASS NAVBAR (RESPONSIVE) --- */}
       <motion.nav 
         initial={{ y: -100 }} animate={{ y: 0 }}
         className="sticky top-0 z-40 bg-white/40 backdrop-blur-xl border-b border-white/50 shadow-sm"
@@ -235,7 +250,7 @@ export default function DashboardPage() {
               </span>
             </div>
 
-            {/* Desktop Menu (Hidden on Mobile) */}
+            {/* Desktop Menu */}
             <div className="hidden md:flex items-center gap-6">
               <div className="flex gap-6 text-sm font-medium text-gray-600">
                 <a href="/dashboard" className="text-emerald-700 font-bold border-b-2 border-emerald-500 pb-1">Dashboard</a>
@@ -248,7 +263,7 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {/* Mobile Menu Button (Visible on Mobile) */}
+            {/* Mobile Menu Button */}
             <div className="md:hidden flex items-center">
               <button 
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -260,7 +275,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Mobile Dropdown Menu */}
+        {/* Mobile Dropdown */}
         <AnimatePresence>
           {isMobileMenuOpen && (
             <motion.div
@@ -274,7 +289,6 @@ export default function DashboardPage() {
                 <a href="/riwayat" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Riwayat</a>
                 <a href="/kalkulator" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Database Pangan</a>
                 <a href="/artikel" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Artikel</a>
-                
                 <div className="pt-4 mt-4 border-t border-gray-100">
                   <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition">
                     <LogOut className="w-4 h-4" /> Keluar
@@ -292,23 +306,16 @@ export default function DashboardPage() {
         {/* Welcome Header */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="mb-10 flex flex-col md:flex-row justify-between md:items-end gap-4"
+          className="mb-10 flex justify-between items-end"
         >
           <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">
+            <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
               Halo, <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-500 to-teal-500 capitalize">
                 {user?.user_metadata?.username || user?.email?.split('@')[0]}
               </span> 👋
             </h1>
             <p className="text-gray-500 font-medium">Ayo capai target nutrisi hari ini!</p>
           </div>
-          
-          {/* Recommendation Bubble (Jika ada saran otomatis dari sistem) */}
-          {nutritionTarget?.recommendation_text && (
-             <div className="px-4 py-2 bg-yellow-100 border border-yellow-200 text-yellow-800 rounded-xl text-sm font-medium shadow-sm animate-pulse">
-               💡 {nutritionTarget.recommendation_text}
-             </div>
-          )}
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -335,6 +342,7 @@ export default function DashboardPage() {
                   <div className="bg-white/50 p-4 rounded-2xl border border-white/60">
                     <div className="flex justify-between mb-2">
                       <span className="text-sm font-bold text-gray-600 flex items-center gap-1"><Flame size={14} className="text-orange-500"/> Kalori</span>
+                      {/* TAMPILKAN TARGET CALORIES (Yang sudah disesuaikan tujuan) */}
                       <span className="text-sm font-bold text-emerald-600">{todayTotal.calories} / {nutritionTarget.target_calories}</span>
                     </div>
                     <div className="w-full bg-gray-200/50 rounded-full h-3 overflow-hidden">
@@ -342,6 +350,10 @@ export default function DashboardPage() {
                         initial={{ width: 0 }} animate={{ width: `${Math.min(calorieProgress, 100)}%` }}
                         className="h-full bg-linear-to-r from-orange-400 to-red-500 rounded-full shadow-[0_0_10px_rgba(249,115,22,0.5)]"
                       />
+                    </div>
+                    {/* Tampilkan Tujuan Saat Ini */}
+                    <div className="mt-2 text-xs text-center font-bold text-emerald-700 bg-emerald-100/50 py-1 rounded-lg">
+                       Target: {profile?.tujuan === 'turun' ? '📉 Turun Berat' : profile?.tujuan === 'naik' ? '📈 Naik Berat' : '⚖️ Stabil'}
                     </div>
                   </div>
 
@@ -384,7 +396,7 @@ export default function DashboardPage() {
                     <div className="text-xs font-medium opacity-80">Status BMI</div>
                     <div className="flex justify-between items-end mt-1">
                       <div className="text-3xl font-bold">{nutritionTarget.bmi}</div>
-                      <div className="text-xs md:text-sm font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-md">
+                      <div className="text-sm font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-md">
                         {nutritionTarget.bmi_category}
                       </div>
                     </div>
@@ -395,7 +407,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
-              {/* Decor */}
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-400/10 rounded-full blur-2xl" />
             </div>
           </motion.div>
@@ -414,7 +425,7 @@ export default function DashboardPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                   onClick={() => setShowAddFoodModal(true)}
-                  className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition flex items-center gap-2 w-full sm:w-auto justify-center"
+                  className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition flex items-center gap-2"
                 >
                   <Plus size={20} /> Tambah Menu
                 </motion.button>
@@ -444,13 +455,13 @@ export default function DashboardPage() {
                              {log.meal_type === 'sarapan' ? '🌅' : log.meal_type === 'makan_siang' ? '☀️' : log.meal_type === 'makan_malam' ? '🌙' : '🍎'}
                            </div>
                            <div>
-                              <h3 className="font-bold text-gray-800 text-lg">{log.foods.food_name}</h3>
-                              <div className="flex gap-3 text-xs text-gray-500 font-medium mt-1 flex-wrap">
-                                <span className="bg-white/50 px-2 py-1 rounded-md">{log.quantity_grams}g</span>
-                                <span className="flex items-center gap-1"><Zap size={10} /> {Math.round(log.foods.protein_g * multiplier)}g P</span>
-                                <span className="flex items-center gap-1"><Activity size={10} /> {Math.round(log.foods.carbs_g * multiplier)}g K</span>
-                                <span className="flex items-center gap-1"><Droplet size={10} /> {Math.round(log.foods.fat_g * multiplier)}g L</span>
-                              </div>
+                             <h3 className="font-bold text-gray-800 text-lg">{log.foods.food_name}</h3>
+                             <div className="flex gap-3 text-xs text-gray-500 font-medium mt-1">
+                               <span className="bg-white/50 px-2 py-1 rounded-md">{log.quantity_grams}g</span>
+                               <span className="flex items-center gap-1"><Zap size={10} /> {Math.round(log.foods.protein_g * multiplier)}g P</span>
+                               <span className="flex items-center gap-1"><Activity size={10} /> {Math.round(log.foods.carbs_g * multiplier)}g K</span>
+                               <span className="flex items-center gap-1"><Droplet size={10} /> {Math.round(log.foods.fat_g * multiplier)}g L</span>
+                             </div>
                            </div>
                         </div>
                         <div className="text-right">
@@ -465,10 +476,7 @@ export default function DashboardPage() {
               
               {todayLogs.length > 0 && (
                 <div className="text-center mt-8">
-                  <a
-                    href="/riwayat"
-                    className="inline-flex items-center gap-2 text-emerald-600 font-bold hover:text-emerald-800 transition group"
-                  >
+                  <a href="/riwayat" className="inline-flex items-center gap-2 text-emerald-600 font-bold hover:text-emerald-800 transition group">
                     Lihat Riwayat Lengkap 
                     <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </a>
@@ -481,7 +489,8 @@ export default function DashboardPage() {
 
       {/* ================= MODALS ================= */}
       <AnimatePresence>
-        {/* MODAL UPDATE BIOMETRIK */}
+        
+        {/* --- MODAL UPDATE BIOMETRIK (SUDAH ADA TUJUAN) --- */}
         {showUpdateDataModal && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -489,25 +498,26 @@ export default function DashboardPage() {
           >
             <motion.div 
               initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-              className="bg-white/90 backdrop-blur-xl rounded-4xl w-full max-w-md p-8 border border-white/50 shadow-2xl"
+              className="bg-white/90 backdrop-blur-xl rounded-4xl w-full max-w-md p-8 border border-white/50 shadow-2xl overflow-y-auto max-h-[90vh]"
             >
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">Update Biometrik</h2>
+                <h2 className="text-2xl font-bold text-gray-800">Update Profil</h2>
                 <button onClick={() => setShowUpdateDataModal(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"><X size={20}/></button>
               </div>
               <form onSubmit={handleUpdateData} className="space-y-5">
                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                       <label className="text-sm font-bold text-gray-600 mb-1 block">Berat (kg)</label>
-                       <input type="number" step="0.1" value={updateFormData.berat_kg} onChange={e => setUpdateFormData({...updateFormData, berat_kg: e.target.value})} 
-                         className="w-full bg-white/50 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" />
-                    </div>
-                    <div>
-                       <label className="text-sm font-bold text-gray-600 mb-1 block">Tinggi (cm)</label>
-                       <input type="number" value={updateFormData.tinggi_cm} onChange={e => setUpdateFormData({...updateFormData, tinggi_cm: e.target.value})} 
-                         className="w-full bg-white/50 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" />
-                    </div>
+                   <div>
+                      <label className="text-sm font-bold text-gray-600 mb-1 block">Berat (kg)</label>
+                      <input type="number" step="0.1" value={updateFormData.berat_kg} onChange={e => setUpdateFormData({...updateFormData, berat_kg: e.target.value})} 
+                        className="w-full bg-white/50 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                   </div>
+                   <div>
+                      <label className="text-sm font-bold text-gray-600 mb-1 block">Tinggi (cm)</label>
+                      <input type="number" value={updateFormData.tinggi_cm} onChange={e => setUpdateFormData({...updateFormData, tinggi_cm: e.target.value})} 
+                        className="w-full bg-white/50 border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-emerald-500 outline-none" />
+                   </div>
                  </div>
+                 
                  <div>
                     <label className="text-sm font-bold text-gray-600 mb-1 block">Aktivitas</label>
                     <select value={updateFormData.level_aktivitas} onChange={e => setUpdateFormData({...updateFormData, level_aktivitas: parseFloat(e.target.value)})}
@@ -515,15 +525,47 @@ export default function DashboardPage() {
                       {activityLevels.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                     </select>
                  </div>
+
+                 {/* --- INPUT TUJUAN DI MODAL --- */}
+                 <div>
+                    <label className="text-sm font-bold text-gray-600 mb-2 block">Tujuan Diet</label>
+                    <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { id: 'turun', label: 'Turun', icon: TrendingDown, color: 'text-orange-500' },
+                          { id: 'tetap', label: 'Stabil', icon: Minus, color: 'text-blue-500' },
+                          { id: 'naik', label: 'Naik', icon: TrendingUp, color: 'text-green-500' }
+                        ].map((item) => (
+                          <div key={item.id} className="relative">
+                            <input
+                              type="radio"
+                              name="tujuan_update"
+                              id={`up_${item.id}`}
+                              value={item.id}
+                              checked={updateFormData.tujuan === item.id}
+                              onChange={() => setUpdateFormData({ ...updateFormData, tujuan: item.id as any })}
+                              className="peer sr-only"
+                            />
+                            <label
+                              htmlFor={`up_${item.id}`}
+                              className="flex flex-col items-center justify-center p-3 bg-white/50 border-2 border-transparent rounded-xl cursor-pointer transition-all hover:bg-white peer-checked:border-emerald-500 peer-checked:bg-emerald-50"
+                            >
+                              <item.icon size={20} className={`mb-1 ${item.color}`} />
+                              <div className="font-bold text-gray-700 text-xs">{item.label}</div>
+                            </label>
+                          </div>
+                        ))}
+                    </div>
+                 </div>
+
                  <button type="submit" disabled={updating} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-lg transition flex justify-center items-center gap-2">
-                    {updating ? 'Menyimpan...' : <><Save size={18} /> Simpan Perubahan</>}
+                   {updating ? 'Menyimpan...' : <><Save size={18} /> Simpan Perubahan</>}
                  </button>
               </form>
             </motion.div>
           </motion.div>
         )}
 
-        {/* MODAL TAMBAH MAKANAN */}
+        {/* MODAL TAMBAH MAKANAN (Sama seperti sebelumnya) */}
         {showAddFoodModal && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
