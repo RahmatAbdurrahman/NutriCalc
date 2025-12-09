@@ -18,7 +18,8 @@ import {
   type URTConversion
 } from '@/lib/supabase'
 import { 
-  Heart, LogOut, Plus, Search, X, Target, Activity, Edit, Save, Ruler, Weight, ChevronRight, Flame, Zap, Droplet
+  LogOut, Plus, Search, X, Target, Activity, Edit, Save, 
+  ChevronRight, Flame, Zap, Droplet, Menu // <--- Import Menu
 } from 'lucide-react'
 
 // =====================================================
@@ -55,15 +56,23 @@ function AnimatedBackground() {
 // =====================================================
 export default function DashboardPage() {
   const router = useRouter()
+  
+  // --- STATE MANAGEMENT ---
   const [user, setUser] = useState<any>(null)
   const [profile, setProfile] = useState<any>(null)
   const [nutritionTarget, setNutritionTarget] = useState<any>(null)
   const [todayLogs, setTodayLogs] = useState<any[]>([])
   const [todayTotal, setTodayTotal] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 })
 
-  // Modal states
+  // UI States
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false) // <--- State untuk Hamburger Menu
+  const [loading, setLoading] = useState(true)
+  
+  // Modal States
   const [showAddFoodModal, setShowAddFoodModal] = useState(false)
   const [showUpdateDataModal, setShowUpdateDataModal] = useState(false)
+  
+  // Add Food Form States
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Food[]>([])
   const [selectedFood, setSelectedFood] = useState<Food | null>(null)
@@ -71,19 +80,17 @@ export default function DashboardPage() {
   const [selectedURT, setSelectedURT] = useState<URTConversion | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [mealType, setMealType] = useState<'sarapan' | 'makan_siang' | 'makan_malam' | 'snack'>('sarapan')
-
-  // Update data form
-  const [updateFormData, setUpdateFormData] = useState({ berat_kg: '', tinggi_cm: '', level_aktivitas: 1.55 })
-
-  const [loading, setLoading] = useState(true)
   const [addingFood, setAddingFood] = useState(false)
+
+  // Update Profile Form States
+  const [updateFormData, setUpdateFormData] = useState({ berat_kg: '', tinggi_cm: '', level_aktivitas: 1.55 })
   const [updating, setUpdating] = useState(false)
 
   // --- LOGIC: LOAD DATA ---
   useEffect(() => {
     const loadData = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      if (!user) { router.push('/auth'); return }
       setUser(user)
 
       const { data: profileData } = await supabase.from('profiles').select('*').eq('id', user.id).single()
@@ -97,9 +104,16 @@ export default function DashboardPage() {
       })
 
       const age = calculateAge(profileData.tgl_lahir)
+      // Gunakan Edge Function untuk kalkulasi presisi
       const nutritionData = await calculateNutrition({
-        usia: age, gender: profileData.gender, berat_kg: profileData.berat_kg, tinggi_cm: profileData.tinggi_cm, level_aktivitas: profileData.level_aktivitas
+        usia: age, 
+        gender: profileData.gender, 
+        berat_kg: profileData.berat_kg, 
+        tinggi_cm: profileData.tinggi_cm, 
+        level_aktivitas: profileData.level_aktivitas,
+        tujuan: profileData.tujuan
       })
+      
       setNutritionTarget(nutritionData.data)
       await loadTodayLogs(user.id)
       setLoading(false)
@@ -126,6 +140,7 @@ export default function DashboardPage() {
     })
   }
 
+  // --- HANDLERS ---
   const handleUpdateData = async (e: React.FormEvent) => {
     e.preventDefault()
     setUpdating(true)
@@ -137,9 +152,15 @@ export default function DashboardPage() {
         }).eq('id', user.id)
       if (updateError) throw updateError
 
+      // Recalculate
       const age = calculateAge(profile.tgl_lahir)
       const nutritionData = await calculateNutrition({
-        usia: age, gender: profile.gender, berat_kg: parseFloat(updateFormData.berat_kg), tinggi_cm: parseInt(updateFormData.tinggi_cm), level_aktivitas: updateFormData.level_aktivitas
+        usia: age, 
+        gender: profile.gender, 
+        berat_kg: parseFloat(updateFormData.berat_kg), 
+        tinggi_cm: parseInt(updateFormData.tinggi_cm), 
+        level_aktivitas: updateFormData.level_aktivitas,
+        tujuan: profile.tujuan
       })
       setNutritionTarget(nutritionData.data)
       setProfile({ ...profile, berat_kg: parseFloat(updateFormData.berat_kg), tinggi_cm: parseInt(updateFormData.tinggi_cm), level_aktivitas: updateFormData.level_aktivitas })
@@ -156,7 +177,6 @@ export default function DashboardPage() {
     setSelectedFood(food)
     const urts = await getFoodURTs(food.food_id)
     setFoodURTs(urts)
-    // Set default URT (biasanya 'gram' atau yang pertama)
     if (urts.length > 0) { setSelectedURT(urts[0]) }
   }
 
@@ -180,7 +200,7 @@ export default function DashboardPage() {
   const handleLogout = async () => { await supabase.auth.signOut(); router.push('/') }
 
   // Progress Calculation
-  const calorieProgress = nutritionTarget ? (todayTotal.calories / nutritionTarget.tdee) * 100 : 0
+  const calorieProgress = nutritionTarget ? (todayTotal.calories / nutritionTarget.target_calories) * 100 : 0
   const proteinProgress = nutritionTarget ? (todayTotal.protein / nutritionTarget.protein_g) * 100 : 0
   const carbsProgress = nutritionTarget ? (todayTotal.carbs / nutritionTarget.carbs_g) * 100 : 0
   const fatProgress = nutritionTarget ? (todayTotal.fat / nutritionTarget.fat_g) * 100 : 0
@@ -200,32 +220,70 @@ export default function DashboardPage() {
     <div className="relative min-h-screen text-gray-800 font-sans overflow-x-hidden">
       <AnimatedBackground />
 
-      {/* --- GLASS NAVBAR --- */}
+      {/* --- RESPONSIVE NAVBAR --- */}
       <motion.nav 
         initial={{ y: -100 }} animate={{ y: 0 }}
         className="sticky top-0 z-40 bg-white/40 backdrop-blur-xl border-b border-white/50 shadow-sm"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
+            {/* Logo */}
             <div className="flex items-center gap-3">
               <motion.img src="/logo.png" alt="Logo" whileHover={{ rotate: 10, scale: 1.1 }} className="w-10 h-10 rounded-xl object-cover shadow-lg shadow-emerald-500/20" />
               <span className="text-2xl font-bold bg-clip-text text-transparent bg-linear-to-r from-gray-800 to-emerald-800">
                 NutriCalc<span className="text-emerald-500">+</span>
               </span>
             </div>
-            <div className="flex items-center gap-6">
-              <div className="hidden md:flex gap-6 text-sm font-medium text-gray-600">
-                <a href="/dashboard" className="text-emerald-700 font-bold">Dashboard</a>
-                <a href="/riwayat" className="hover:text-emerald-600 transition">Riwayat</a>
-                <a href="/kalkulator" className="hover:text-emerald-600 transition">Database Pangan</a>
-                <a href="/artikel" className="hover:text-emerald-600 transition">Artikel</a>
+
+            {/* Desktop Menu (Hidden on Mobile) */}
+            <div className="hidden md:flex items-center gap-6">
+              <div className="flex gap-6 text-sm font-medium text-gray-600">
+                <a href="/dashboard" className="text-emerald-700 font-bold border-b-2 border-emerald-500 pb-1">Dashboard</a>
+                <a href="/riwayat" className="hover:text-emerald-600 transition pb-1 border-b-2 border-transparent hover:border-emerald-200">Riwayat</a>
+                <a href="/kalkulator" className="hover:text-emerald-600 transition pb-1 border-b-2 border-transparent hover:border-emerald-200">Database Pangan</a>
+                <a href="/artikel" className="hover:text-emerald-600 transition pb-1 border-b-2 border-transparent hover:border-emerald-200">Artikel</a>
               </div>
               <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-white/50 hover:bg-red-50 text-gray-700 hover:text-red-600 rounded-full border border-transparent hover:border-red-200 transition-all text-sm font-bold">
                 <LogOut className="w-4 h-4" /> Keluar
               </button>
             </div>
+
+            {/* Mobile Menu Button (Visible on Mobile) */}
+            <div className="md:hidden flex items-center">
+              <button 
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 rounded-xl text-gray-600 hover:bg-white/50 transition"
+              >
+                {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="md:hidden overflow-hidden bg-white/80 backdrop-blur-xl border-t border-white/50"
+            >
+              <div className="px-4 pt-4 pb-6 space-y-2">
+                <a href="/dashboard" className="block px-4 py-3 rounded-xl bg-emerald-50 text-emerald-700 font-bold">Dashboard</a>
+                <a href="/riwayat" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Riwayat</a>
+                <a href="/kalkulator" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Database Pangan</a>
+                <a href="/artikel" className="block px-4 py-3 rounded-xl hover:bg-white/50 text-gray-600 font-medium transition">Artikel</a>
+                
+                <div className="pt-4 mt-4 border-t border-gray-100">
+                  <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition">
+                    <LogOut className="w-4 h-4" /> Keluar
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.nav>
 
       {/* --- MAIN CONTENT --- */}
@@ -234,16 +292,23 @@ export default function DashboardPage() {
         {/* Welcome Header */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          className="mb-10 flex justify-between items-end"
+          className="mb-10 flex flex-col md:flex-row justify-between md:items-end gap-4"
         >
           <div>
-            <h1 className="text-4xl font-extrabold text-gray-900 mb-2">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">
               Halo, <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-500 to-teal-500 capitalize">
                 {user?.user_metadata?.username || user?.email?.split('@')[0]}
               </span> 👋
             </h1>
             <p className="text-gray-500 font-medium">Ayo capai target nutrisi hari ini!</p>
           </div>
+          
+          {/* Recommendation Bubble (Jika ada saran otomatis dari sistem) */}
+          {nutritionTarget?.recommendation_text && (
+             <div className="px-4 py-2 bg-yellow-100 border border-yellow-200 text-yellow-800 rounded-xl text-sm font-medium shadow-sm animate-pulse">
+               💡 {nutritionTarget.recommendation_text}
+             </div>
+          )}
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-8">
@@ -270,7 +335,7 @@ export default function DashboardPage() {
                   <div className="bg-white/50 p-4 rounded-2xl border border-white/60">
                     <div className="flex justify-between mb-2">
                       <span className="text-sm font-bold text-gray-600 flex items-center gap-1"><Flame size={14} className="text-orange-500"/> Kalori</span>
-                      <span className="text-sm font-bold text-emerald-600">{todayTotal.calories} / {nutritionTarget.tdee}</span>
+                      <span className="text-sm font-bold text-emerald-600">{todayTotal.calories} / {nutritionTarget.target_calories}</span>
                     </div>
                     <div className="w-full bg-gray-200/50 rounded-full h-3 overflow-hidden">
                       <motion.div 
@@ -282,36 +347,36 @@ export default function DashboardPage() {
 
                   {/* Macros Grid */}
                   <div className="space-y-4">
-                     {/* Protein */}
-                     <div>
-                       <div className="flex justify-between text-xs font-bold mb-1 text-gray-500">
+                      {/* Protein */}
+                      <div>
+                        <div className="flex justify-between text-xs font-bold mb-1 text-gray-500">
                           <span className="flex items-center gap-1"><Zap size={12} className="text-blue-500"/> Protein</span>
                           <span>{todayTotal.protein} / {nutritionTarget.protein_g}g</span>
-                       </div>
-                       <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
-                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(proteinProgress, 100)}%` }} className="h-full bg-linear-to-r from-blue-400 to-blue-600" />
-                       </div>
-                     </div>
-                     {/* Carbs */}
-                     <div>
-                       <div className="flex justify-between text-xs font-bold mb-1 text-gray-500">
+                        </div>
+                        <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(proteinProgress, 100)}%` }} className="h-full bg-linear-to-r from-blue-400 to-blue-600" />
+                        </div>
+                      </div>
+                      {/* Carbs */}
+                      <div>
+                        <div className="flex justify-between text-xs font-bold mb-1 text-gray-500">
                           <span className="flex items-center gap-1"><Activity size={12} className="text-amber-500"/> Karbo</span>
                           <span>{todayTotal.carbs} / {nutritionTarget.carbs_g}g</span>
-                       </div>
-                       <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
-                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(carbsProgress, 100)}%` }} className="h-full bg-linear-to-r from-amber-400 to-yellow-500" />
-                       </div>
-                     </div>
-                     {/* Fat */}
-                     <div>
-                       <div className="flex justify-between text-xs font-bold mb-1 text-gray-500">
+                        </div>
+                        <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(carbsProgress, 100)}%` }} className="h-full bg-linear-to-r from-amber-400 to-yellow-500" />
+                        </div>
+                      </div>
+                      {/* Fat */}
+                      <div>
+                        <div className="flex justify-between text-xs font-bold mb-1 text-gray-500">
                           <span className="flex items-center gap-1"><Droplet size={12} className="text-purple-500"/> Lemak</span>
                           <span>{todayTotal.fat} / {nutritionTarget.fat_g}g</span>
-                       </div>
-                       <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
-                         <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(fatProgress, 100)}%` }} className="h-full bg-linear-to-r from-purple-400 to-purple-600" />
-                       </div>
-                     </div>
+                        </div>
+                        <div className="w-full bg-gray-200/50 rounded-full h-2 overflow-hidden">
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(fatProgress, 100)}%` }} className="h-full bg-linear-to-r from-purple-400 to-purple-600" />
+                        </div>
+                      </div>
                   </div>
 
                   {/* BMI Card */}
@@ -319,7 +384,7 @@ export default function DashboardPage() {
                     <div className="text-xs font-medium opacity-80">Status BMI</div>
                     <div className="flex justify-between items-end mt-1">
                       <div className="text-3xl font-bold">{nutritionTarget.bmi}</div>
-                      <div className="text-sm font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-md">
+                      <div className="text-xs md:text-sm font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-md">
                         {nutritionTarget.bmi_category}
                       </div>
                     </div>
@@ -349,7 +414,7 @@ export default function DashboardPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                   onClick={() => setShowAddFoodModal(true)}
-                  className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition flex items-center gap-2"
+                  className="px-6 py-3 bg-gray-900 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition flex items-center gap-2 w-full sm:w-auto justify-center"
                 >
                   <Plus size={20} /> Tambah Menu
                 </motion.button>
@@ -376,11 +441,11 @@ export default function DashboardPage() {
                       >
                         <div className="flex items-center gap-4">
                            <div className="w-12 h-12 bg-linear-to-br from-orange-100 to-yellow-100 rounded-xl flex items-center justify-center text-2xl">
-                              {log.meal_type === 'sarapan' ? '🌅' : log.meal_type === 'makan_siang' ? '☀️' : log.meal_type === 'makan_malam' ? '🌙' : '🍎'}
+                             {log.meal_type === 'sarapan' ? '🌅' : log.meal_type === 'makan_siang' ? '☀️' : log.meal_type === 'makan_malam' ? '🌙' : '🍎'}
                            </div>
                            <div>
                               <h3 className="font-bold text-gray-800 text-lg">{log.foods.food_name}</h3>
-                              <div className="flex gap-3 text-xs text-gray-500 font-medium mt-1">
+                              <div className="flex gap-3 text-xs text-gray-500 font-medium mt-1 flex-wrap">
                                 <span className="bg-white/50 px-2 py-1 rounded-md">{log.quantity_grams}g</span>
                                 <span className="flex items-center gap-1"><Zap size={10} /> {Math.round(log.foods.protein_g * multiplier)}g P</span>
                                 <span className="flex items-center gap-1"><Activity size={10} /> {Math.round(log.foods.carbs_g * multiplier)}g K</span>
@@ -416,6 +481,7 @@ export default function DashboardPage() {
 
       {/* ================= MODALS ================= */}
       <AnimatePresence>
+        {/* MODAL UPDATE BIOMETRIK */}
         {showUpdateDataModal && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -457,6 +523,7 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
+        {/* MODAL TAMBAH MAKANAN */}
         {showAddFoodModal && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

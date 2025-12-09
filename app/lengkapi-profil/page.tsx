@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation'
 import { Canvas } from '@react-three/fiber'
 import { Sphere, MeshDistortMaterial, Float, Stars } from '@react-three/drei'
 import { motion } from 'framer-motion'
-import { supabase, activityLevels } from '@/lib/supabase'
-import { Calendar, User, Ruler, Weight, Activity, Check } from 'lucide-react'
+import { supabase, activityLevels } from '@/lib/supabase' // Pastikan path ini benar
+import { Calendar, User, Ruler, Weight, Activity, Check, Target, TrendingDown, Minus, TrendingUp } from 'lucide-react'
 
 // =====================================================
-// 1. REUSABLE 3D BACKGROUND (Konsisten)
+// 1. REUSABLE 3D BACKGROUND
 // =====================================================
 function AnimatedBackground() {
   return (
@@ -43,13 +43,17 @@ function AnimatedBackground() {
 export default function CompleteProfilePage() {
   const router = useRouter()
   const [userId, setUserId] = useState<string | null>(null)
+  
+  // State Form (Ditambah 'tujuan')
   const [formData, setFormData] = useState({
     tgl_lahir: '',
     gender: 'pria' as 'pria' | 'wanita',
     tinggi_cm: '',
     berat_kg: '',
-    level_aktivitas: 1.55
+    level_aktivitas: 1.55,
+    tujuan: 'tetap' as 'turun' | 'tetap' | 'naik' // Default maintenance
   })
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -57,10 +61,12 @@ export default function CompleteProfilePage() {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
-        router.push('/auth') // Redirect ke halaman Auth baru
+        router.push('/auth') 
         return
       }
       setUserId(user.id)
+      
+      // Cek apakah profil sudah ada
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
@@ -90,11 +96,15 @@ export default function CompleteProfilePage() {
           gender: formData.gender,
           tinggi_cm: parseInt(formData.tinggi_cm),
           berat_kg: parseFloat(formData.berat_kg),
-          level_aktivitas: formData.level_aktivitas
+          level_aktivitas: formData.level_aktivitas,
+          tujuan: formData.tujuan // Simpan tujuan ke DB
         })
 
       if (insertError) throw insertError
+      
+      // Redirect ke dashboard setelah sukses
       router.push('/dashboard')
+      
     } catch (err: any) {
       setError(err.message || 'Gagal menyimpan profil')
     } finally {
@@ -106,7 +116,7 @@ export default function CompleteProfilePage() {
     <div className="relative min-h-screen flex items-center justify-center p-4 font-sans text-gray-800">
       <AnimatedBackground />
 
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-2xl my-10">
         
         {/* Header */}
         <motion.div 
@@ -115,13 +125,15 @@ export default function CompleteProfilePage() {
           className="text-center mb-8"
         >
           <div className="flex items-center justify-center gap-2 mb-4">
-            <img src="/logo.png" alt="NutriCalc+ Logo" className="w-12 h-12 rounded-2xl object-cover shadow-lg" />
+            <div className="w-12 h-12 bg-white rounded-2xl shadow-lg flex items-center justify-center text-2xl">
+              🥗 {/* Placeholder Logo jika image belum load */}
+            </div>
           </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">
+          <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2 tracking-tight">
             Lengkapi Profil Anda
           </h1>
           <p className="text-gray-500 font-medium">
-            Agar kami bisa menjadi asisten gizi terbaik untuk Anda.
+            Agar NutriCalc+ bisa merancang rencana gizi yang presisi untuk Anda.
           </p>
         </motion.div>
 
@@ -134,10 +146,10 @@ export default function CompleteProfilePage() {
         >
           <form onSubmit={handleSubmit} className="space-y-8">
             
-            {/* 1. GENDER SELECTION (INTERACTIVE CARD STYLE) */}
+            {/* 1. GENDER SELECTION */}
             <div>
-              <label className="block text-sm font-bold text-gray-600 mb-3 ml-1 flex items-center gap-2">
-                <User size={18} /> Jenis Kelamin
+              <label className="block text-sm font-bold text-gray-700 mb-3 ml-1 flex items-center gap-2">
+                <User size={18} className="text-emerald-600" /> Jenis Kelamin
               </label>
               <div className="grid grid-cols-2 gap-4">
                 {['pria', 'wanita'].map((g) => (
@@ -149,7 +161,7 @@ export default function CompleteProfilePage() {
                       value={g}
                       checked={formData.gender === g}
                       onChange={() => setFormData({ ...formData, gender: g as any })}
-                      className="peer sr-only" // Sembunyikan radio button asli
+                      className="peer sr-only"
                     />
                     <label
                       htmlFor={g}
@@ -158,7 +170,7 @@ export default function CompleteProfilePage() {
                       <div className="text-4xl mb-2">{g === 'pria' ? '👨' : '👩'}</div>
                       <div className="font-bold text-gray-700 capitalize">{g}</div>
                       
-                      {/* Check Icon (Visible only when checked) */}
+                      {/* Check Icon */}
                       <div className="absolute top-3 right-3 text-emerald-600 opacity-0 peer-checked:opacity-100 transition-opacity">
                         <div className="bg-emerald-100 rounded-full p-1">
                           <Check size={14} strokeWidth={3} />
@@ -172,8 +184,8 @@ export default function CompleteProfilePage() {
 
             {/* 2. TANGGAL LAHIR */}
             <div>
-              <label className="block text-sm font-bold text-gray-600 mb-3 ml-1 flex items-center gap-2">
-                <Calendar size={18} /> Tanggal Lahir
+              <label className="block text-sm font-bold text-gray-700 mb-3 ml-1 flex items-center gap-2">
+                <Calendar size={18} className="text-emerald-600" /> Tanggal Lahir
               </label>
               <input
                 type="date"
@@ -185,11 +197,11 @@ export default function CompleteProfilePage() {
               />
             </div>
 
-            {/* 3. TINGGI & BERAT (GRID) */}
+            {/* 3. TINGGI & BERAT */}
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-gray-600 mb-3 ml-1 flex items-center gap-2">
-                  <Ruler size={18} /> Tinggi Badan (cm)
+                <label className="block text-sm font-bold text-gray-700 mb-3 ml-1 flex items-center gap-2">
+                  <Ruler size={18} className="text-emerald-600" /> Tinggi Badan (cm)
                 </label>
                 <div className="relative group">
                   <input
@@ -206,8 +218,8 @@ export default function CompleteProfilePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-600 mb-3 ml-1 flex items-center gap-2">
-                  <Weight size={18} /> Berat Badan (kg)
+                <label className="block text-sm font-bold text-gray-700 mb-3 ml-1 flex items-center gap-2">
+                  <Weight size={18} className="text-emerald-600" /> Berat Badan (kg)
                 </label>
                 <div className="relative group">
                   <input
@@ -225,10 +237,10 @@ export default function CompleteProfilePage() {
               </div>
             </div>
 
-            {/* 4. LEVEL AKTIVITAS (CUSTOM SELECT) */}
+            {/* 4. LEVEL AKTIVITAS */}
             <div>
-              <label className="block text-sm font-bold text-gray-600 mb-3 ml-1 flex items-center gap-2">
-                <Activity size={18} /> Aktivitas Fisik
+              <label className="block text-sm font-bold text-gray-700 mb-3 ml-1 flex items-center gap-2">
+                <Activity size={18} className="text-emerald-600" /> Aktivitas Fisik
               </label>
               <div className="relative">
                 <select
@@ -242,10 +254,42 @@ export default function CompleteProfilePage() {
                     </option>
                   ))}
                 </select>
-                {/* Custom Arrow */}
                 <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                 </div>
+              </div>
+            </div>
+
+            {/* 5. TUJUAN (NEW ADDITION) */}
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-3 ml-1 flex items-center gap-2">
+                <Target size={18} className="text-emerald-600" /> Tujuan Diet
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[
+                  { id: 'turun', label: 'Turun Berat', icon: TrendingDown, color: 'text-orange-500', bg: 'peer-checked:bg-orange-50', border: 'peer-checked:border-orange-500' },
+                  { id: 'tetap', label: 'Pertahankan', icon: Minus, color: 'text-blue-500', bg: 'peer-checked:bg-blue-50', border: 'peer-checked:border-blue-500' },
+                  { id: 'naik', label: 'Naik Berat', icon: TrendingUp, color: 'text-green-500', bg: 'peer-checked:bg-green-50', border: 'peer-checked:border-green-500' }
+                ].map((item) => (
+                  <div key={item.id} className="relative">
+                    <input
+                      type="radio"
+                      name="tujuan"
+                      id={item.id}
+                      value={item.id}
+                      checked={formData.tujuan === item.id}
+                      onChange={() => setFormData({ ...formData, tujuan: item.id as any })}
+                      className="peer sr-only"
+                    />
+                    <label
+                      htmlFor={item.id}
+                      className={`flex flex-col items-center justify-center p-4 bg-white/50 border-2 border-transparent rounded-2xl cursor-pointer transition-all hover:bg-white hover:shadow-md ${item.bg} ${item.border} peer-checked:shadow-md peer-checked:scale-[1.02]`}
+                    >
+                      <item.icon size={24} className={`mb-2 ${item.color}`} />
+                      <div className="font-bold text-gray-700 text-sm">{item.label}</div>
+                    </label>
+                  </div>
+                ))}
               </div>
             </div>
 
